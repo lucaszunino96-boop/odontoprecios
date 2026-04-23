@@ -1,0 +1,233 @@
+"""
+app.py - Servidor web de OdontoPrecio.
+Correr con: python app.py
+"""
+
+import re, json, os, threading
+from flask import Flask, render_template, request, jsonify
+from scraper import cargar_productos, correr_scraper, TIENDAS
+
+app = Flask(__name__)
+
+# ─── Cache en memoria ─────────────────────────────────────────
+_cache = {"productos": None}
+
+def get_productos():
+    if _cache["productos"] is None:
+        _cache["productos"] = cargar_productos()
+    return _cache["productos"]
+
+
+# ─── Sinónimos odontológicos ───────────────────────────────────
+# Cada grupo: buscar cualquiera encuentra todos los demás
+SINONIMOS = [
+    {"anestesia", "anescart", "carpule", "mepivacaina", "lidocaina",
+     "articaina", "escandicaina", "scandicaine", "mepinor", "mepivastesin",
+     "xylestesin", "alphacaine", "ultracaine", "septocaine"},
+    {"composite", "resina", "compomero", "filtek", "tetric", "charisma",
+     "estelite", "grandio", "gradia", "lumiglass", "restaurador"},
+    {"adhesivo", "bond", "primer", "single bond", "optibond", "excite",
+     "adper", "scotchbond", "gluma", "clearfil"},
+    {"cemento", "ionomero", "ionómero", "glass ionomer", "ketac",
+     "fuji", "vitremer", "vitrebond", "relyx", "rely x",
+     "maxcem", "multilink", "panavia", "variolink"},
+    {"endodoncia", "lima", "limas", "hipoclorito", "edta", "ledermix",
+     "gutapercha", "gutta", "conos", "irrigante",
+     "protaper", "waveone", "reciproc", "mtwo"},
+    {"blanqueamiento", "blanqueador", "peroxido", "whitening",
+     "opalescence", "pola", "whiteness"},
+    {"impresion", "alginato", "silicona", "vinilpolisiloxano", "vps",
+     "putty", "zhermack", "president", "aquasil"},
+    {"fresa", "fresas", "turbina", "micromotor", "contraangulo",
+     "pieza de mano", "ultrasonido", "cureta"},
+    {"bracket", "brackets", "arco", "arcos", "ligadura", "banda", "tubo", "alambre"},
+    {"poste", "postes", "perno", "fibra de vidrio"},
+    {"sellador", "sellante", "fisuras", "helioseal", "clinpro"},
+    {"guante", "guantes", "barbijo", "bioseguridad"},
+    {"radiografia", "pelicula", "sensor", "placa radiografica"},
+]
+
+# Pre-normalizar sinónimos una sola vez al inicio (no en cada búsqueda)
+SINONIMOS_NORM = [
+    {re.sub(r"[-./ ]", " ", t).strip() for t in grupo}
+    for grupo in SINONIMOS
+]
+
+def expandir_query(terminos_set):
+    """Dado un set de términos normalizados, agrega sinónimos."""
+    expandidos = set(terminos_set)
+    for grupo in SINONIMOS_NORM:
+        if any(t in grupo or any(t in g for g in grupo) for t in terminos_set):
+            expandidos.update(grupo)
+    return expandidos
+
+
+# ─── Motor de búsqueda ─────────────────────────────────────────
+
+def dividir_token(token):
+    """z350xt -> ['z350', 'xt'] | p60 -> ['p60']"""
+    partes = re.findall(r"[a-z]+|[0-9]+", token)
+    resultado = []
+    i = 0
+    while i < len(partes):
+        if i + 1 < len(partes) and partes[i].isalpha() and partes[i+1].isdigit():
+            resultado.append(partes[i] + partes[i+1])
+            i += 2
+        else:
+            resultado.append(partes[i])
+            i += 1
+    return resultado
+
+def match_token(nombre, nombre_junto, token):
+    """Retorna score de match de un token en el nombre. -1 = no matchea."""
+    patron = r"(?<![a-z0-9])" + re.escape(token) + r"(?![a-z0-9])"
+    if re.search(patron, nombre):
+        return 10
+    if re.search(patron, nombre_junto) or token in nombre_junto:
+        return 10
+    if token in nombre:
+        return 1
+    return -1
+
+def calcular_score(nombre_norm, terminos_variantes):
+    """
+    Retorna score >= 0 si el nombre matchea todos los términos, -1 si no.
+    terminos_variantes: lista donde cada elemento es una lista de alternativas.
+    Ej: [["z350xt", ["z350","xt"]], ["jeringa"]]
+    El primer elemento es el token completo, los siguientes son sub-tokens.
+    """
+    nombre_junto = re.sub(r" ", "", nombre_norm)
+    score = 0
+    for variantes in terminos_variantes:
+        mejor = -1
+        for variante in variantes:
+            if isinstance(variante, list):
+                # Son sub-tokens que TODOS deben matchear (ej: z350 Y xt)
+                sub_score = 0
+                ok = True
+                for sub in variante:
+                    s = match_token(nombre_norm, nombre_junto, sub)
+                    if s < 0:
+                        ok = False
+                        break
+                    sub_score += s
+                if ok:
+                    mejor = max(mejor, sub_score)
+            else:
+                # Token simple
+                s = match_token(nombre_norm, nombre_junto, variante)
+                if s >= 0:
+                    mejor = max(mejor, s)
+        if mejor < 0:
+            return -1
+        score += mejor
+    return score
+
+def preparar_query(q):
+    """
+    Convierte query string en lista de terminos_variantes lista para buscar.
+    Retorna (terminos_base_set, terminos_variantes, terminos_sinonimos)
+    """
+    q_norm = re.sub(r"[-./ ]", " ", q.lower()).strip()
+    q_norm = re.sub(r" +", " ", q_norm)
+    terminos_base = q_norm.split()
+
+    # Generar variantes por token
+    terminos_variantes = []
+    for t in terminos_base:
+        partes = dividir_token(t)
+        if len(partes) > 1 and partes != [t]:
+            # Ej: z350xt -> probar "z350xt" como token O ["z350","xt"] como sub-tokens
+            terminos_variantes.append([t, partes])
+        else:
+            terminos_variantes.append([t])
+
+    # Expandir con sinónimos
+    base_set = set(terminos_base)
+    sinonimos_set = expandir_query(base_set) - base_set
+
+    return terminos_variantes, sinonimos_set
+
+
+# ─── Rutas ─────────────────────────────────────────────────────
+
+@app.route("/")
+def index():
+    return render_template("index.html", tiendas=TIENDAS)
+
+
+@app.route("/api/buscar")
+def buscar():
+    q = request.args.get("q", "").strip().lower()
+
+    # Limitar largo de query para evitar abusos
+    if len(q) < 2 or len(q) > 100:
+        return jsonify([])
+
+    productos = get_productos()
+    terminos_variantes, sinonimos_set = preparar_query(q)
+
+    resultados_directos = []   # match con términos originales
+    resultados_sinonimos = []  # match solo por sinónimo
+
+    for p in productos:
+        nombre = re.sub(r"[-./ ]", " ", p["nombre"].lower())
+        nombre = re.sub(r" +", " ", nombre)
+
+        # Intentar match directo
+        score = calcular_score(nombre, terminos_variantes)
+        if score >= 0:
+            resultados_directos.append((score, p))
+            continue
+
+        # Intentar match por sinónimo
+        if sinonimos_set:
+            for sin in sinonimos_set:
+                nombre_junto = re.sub(r" ", "", nombre)
+                patron = r"(?<![a-z0-9])" + re.escape(sin) + r"(?![a-z0-9])"
+                if re.search(patron, nombre) or re.search(patron, nombre_junto):
+                    resultados_sinonimos.append((1, p))
+                    break
+
+    # Ordenar cada grupo por precio
+    resultados_directos.sort(key=lambda x: (
+        -x[0],  # mayor score primero
+        x[1]["precio"] if x[1]["precio"] > 0 else 999_999_999
+    ))
+    resultados_sinonimos.sort(key=lambda x: (
+        x[1]["precio"] if x[1]["precio"] > 0 else 999_999_999
+    ))
+
+    # Directos primero, luego sinónimos, máximo 60 resultados
+    combinados = resultados_directos + resultados_sinonimos
+    return jsonify([p for _, p in combinados[:60]])
+
+
+@app.route("/api/actualizar", methods=["POST"])
+def actualizar():
+    """Dispara el scraper en background."""
+    def _run():
+        nuevos = correr_scraper()
+        _cache["productos"] = nuevos
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "mensaje": "Actualizando en segundo plano..."})
+
+
+@app.route("/api/stats")
+def stats():
+    productos = get_productos()
+    por_tienda = {}
+    for p in productos:
+        t = p["tienda_nombre"]
+        por_tienda[t] = por_tienda.get(t, 0) + 1
+    return jsonify({"total": len(productos), "por_tienda": por_tienda})
+
+
+if __name__ == "__main__":
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    debug = os.environ.get("FLASK_ENV") != "production"
+    print(f"\n🦷 OdontoPrecio arrancando en puerto {port}...")
+    if debug:
+        print(f"📡 Abrí tu navegador en: http://localhost:{port}\n")
+    app.run(debug=debug, host="0.0.0.0", port=port)

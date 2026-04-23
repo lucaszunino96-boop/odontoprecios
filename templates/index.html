@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OdontoPrecio — Comparador de insumos dentales</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f3ef;
+  --surface: #ffffff;
+  --surface2: #edeae4;
+  --border: #ddd9d1;
+  --text: #1a1814;
+  --text-muted: #7a7568;
+  --accent: #1d6954;
+  --accent-light: #e8f4f0;
+  --danger: #c0392b;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ─── HEADER ─── */
+header {
+  background: var(--text);
+  color: white;
+  padding: 0 32px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.2);
+}
+.logo { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+.logo span { color: #5dbfa0; }
+.header-right { display: flex; align-items: center; gap: 16px; }
+#stats-text { font-size: 13px; color: rgba(255,255,255,0.4); }
+
+/* ─── TABS ─── */
+.tabs-bar {
+  background: var(--surface);
+  border-bottom: 1.5px solid var(--border);
+  padding: 0 32px;
+  display: flex;
+  gap: 0;
+  position: sticky;
+  top: 60px;
+  z-index: 150;
+}
+.tab {
+  padding: 14px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color 0.15s;
+  user-select: none;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-count {
+  background: var(--accent);
+  color: white;
+  border-radius: 20px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 20px;
+  text-align: center;
+}
+.tab-count.empty { background: var(--border); color: var(--text-muted); }
+
+/* ─── PÁGINAS ─── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ─── TIENDAS STRIP ─── */
+.tiendas-strip {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 32px;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.tienda-chip { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); font-weight: 500; }
+
+/* ─── HERO ─── */
+.hero {
+  background: var(--text);
+  padding: 48px 32px 56px;
+  text-align: center;
+}
+.hero-title { font-family: 'Syne', sans-serif; font-size: clamp(26px, 4vw, 42px); font-weight: 800; color: white; margin-bottom: 8px; letter-spacing: -1px; }
+.hero-sub { color: rgba(255,255,255,0.5); font-size: 15px; margin-bottom: 28px; }
+.search-wrap { max-width: 600px; margin: 0 auto; position: relative; }
+.search-input { width: 100%; padding: 18px 56px 18px 24px; font-size: 16px; font-family: 'DM Sans', sans-serif; border: none; border-radius: 50px; background: white; color: var(--text); outline: none; box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
+.search-input:focus { box-shadow: 0 4px 32px rgba(93,191,160,0.3); }
+.search-icon { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); font-size: 20px; pointer-events: none; }
+.search-hint { color: rgba(255,255,255,0.3); font-size: 13px; margin-top: 12px; }
+
+/* ─── LAYOUT BUSQUEDA ─── */
+.busqueda-layout { max-width: 900px; margin: 0 auto; padding: 24px; }
+.resultados-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.resultados-titulo { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+.resultados-count { font-size: 13px; color: var(--text-muted); }
+.productos-grid { display: flex; flex-direction: column; gap: 10px; }
+
+/* ─── PRODUCTO CARD ─── */
+.producto-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  display: grid;
+  grid-template-columns: 68px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  border: 1.5px solid var(--border);
+  transition: border-color 0.15s, transform 0.12s;
+  animation: fadeUp 0.25s ease both;
+}
+@keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+.producto-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.producto-img { width: 68px; height: 68px; object-fit: contain; border-radius: var(--radius-sm); background: var(--bg); padding: 4px; }
+.producto-img-placeholder { width: 68px; height: 68px; border-radius: var(--radius-sm); background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 26px; }
+.tienda-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; color: white; margin-bottom: 5px; }
+.tienda-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.6); }
+.producto-nombre { font-size: 13px; font-weight: 500; line-height: 1.4; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.producto-actualizado { font-size: 11px; color: var(--text-muted); }
+.producto-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+.producto-precio { font-family: 'Syne', sans-serif; font-size: 19px; font-weight: 700; }
+.btn-agregar { background: var(--accent); color: white; border: none; padding: 7px 14px; border-radius: 20px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+.btn-agregar:hover { background: #155c47; }
+.btn-agregar.agregado { background: var(--surface2); color: var(--text-muted); }
+.btn-ver { color: var(--accent); font-size: 12px; text-decoration: none; }
+.btn-ver:hover { text-decoration: underline; }
+.empty-state { text-align: center; padding: 56px 32px; color: var(--text-muted); }
+.empty-state .icon { font-size: 44px; margin-bottom: 14px; }
+.loading { text-align: center; padding: 48px; color: var(--text-muted); display: none; }
+.spinner { width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── PÁGINA LISTA ─── */
+.lista-page { max-width: 960px; margin: 0 auto; padding: 28px 24px; }
+.lista-page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.lista-page-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+.lista-page-sub { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+.lista-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-secondary { background: var(--surface); color: var(--text); border: 1.5px solid var(--border); padding: 8px 16px; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: border-color 0.15s; }
+.btn-secondary:hover { border-color: var(--text-muted); }
+.btn-secondary.danger:hover { border-color: var(--danger); color: var(--danger); }
+.btn-primary { background: var(--accent); color: white; border: none; padding: 8px 16px; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+.btn-primary:hover { background: #155c47; }
+.btn-whatsapp { background: #25d366; color: white; border: none; padding: 8px 16px; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; }
+
+/* Métricas */
+.metricas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+.metrica { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 16px 20px; }
+.metrica-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+.metrica-valor { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; }
+
+/* Grid de tiendas */
+.tiendas-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.tienda-card-lista {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.tienda-card-header {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+.tienda-card-nombre { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.tienda-card-subtotal { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: var(--accent); }
+.lista-items { }
+.lista-item-row {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.lista-item-row:last-child { border-bottom: none; }
+.lista-item-img { width: 48px; height: 48px; object-fit: contain; border-radius: 6px; background: var(--bg); padding: 3px; }
+.lista-item-img-placeholder { width: 48px; height: 48px; border-radius: 6px; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.lista-item-info { min-width: 0; }
+.lista-item-nombre { font-size: 12px; font-weight: 500; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.lista-item-precio { font-size: 12px; color: var(--text-muted); }
+.lista-item-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.qty-wrap { display: flex; align-items: center; gap: 4px; background: var(--surface2); border-radius: 6px; padding: 3px 6px; }
+.qty-btn { width: 20px; height: 20px; border: none; background: none; cursor: pointer; font-size: 15px; color: var(--text); display: flex; align-items: center; justify-content: center; border-radius: 4px; line-height: 1; }
+.qty-btn:hover { background: var(--border); }
+.qty-val { font-size: 13px; font-weight: 600; min-width: 18px; text-align: center; }
+.btn-quitar { width: 24px; height: 24px; border: none; background: none; cursor: pointer; color: var(--text-muted); font-size: 18px; display: flex; align-items: center; justify-content: center; border-radius: 4px; line-height: 1; }
+.btn-quitar:hover { background: #fde8e8; color: var(--danger); }
+.tienda-card-footer { padding: 10px 18px; background: var(--bg); display: flex; align-items: center; justify-content: space-between; }
+.tienda-card-footer-info { font-size: 12px; color: var(--text-muted); }
+.ir-tienda { font-size: 12px; color: var(--accent); text-decoration: none; font-weight: 500; }
+.ir-tienda:hover { text-decoration: underline; }
+
+/* Footer global */
+.lista-global-footer {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+}
+.global-total-label { font-size: 13px; color: var(--text-muted); margin-bottom: 2px; }
+.global-total-valor { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 800; }
+.global-footer-actions { display: flex; gap: 8px; }
+
+/* Lista vacía */
+.lista-vacia-full { text-align: center; padding: 80px 32px; color: var(--text-muted); }
+.lista-vacia-full .icon { font-size: 52px; margin-bottom: 16px; }
+.lista-vacia-full h3 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+.lista-vacia-full p { font-size: 14px; }
+.btn-ir-buscar { display: inline-block; margin-top: 20px; background: var(--accent); color: white; border: none; padding: 10px 24px; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; }
+
+/* ─── TOAST ─── */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--text); color: white; padding: 11px 22px; border-radius: 50px; font-size: 13px; font-weight: 500; z-index: 1000; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: none; white-space: nowrap; }
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 700px) {
+  .tiendas-grid { grid-template-columns: 1fr; }
+  .metricas { grid-template-columns: repeat(3,1fr); }
+  .producto-card { grid-template-columns: 56px 1fr; }
+  .producto-right { grid-column: 1/-1; flex-direction: row; justify-content: space-between; align-items: center; }
+  header { padding: 0 16px; }
+  .tabs-bar { padding: 0 16px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🦷 Odonto<span>Precio</span></div>
+  <div class="header-right">
+    <div id="stats-text">Cargando...</div>
+  </div>
+</header>
+
+<div class="tabs-bar">
+  <div class="tab active" id="tab-buscar" onclick="mostrarTab('buscar')">
+    🔍 Buscar
+  </div>
+  <div class="tab" id="tab-lista" onclick="mostrarTab('lista')">
+    🛒 Mi lista de compras
+    <span class="tab-count empty" id="lista-count">0</span>
+  </div>
+</div>
+
+<!-- ═══ PÁGINA: BUSCAR ═══ -->
+<div class="page active" id="page-buscar">
+
+  <div class="tiendas-strip">
+    <span style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Distribuidoras:</span>
+    {% for t in tiendas %}
+    <div class="tienda-chip">
+      <div style="width:8px;height:8px;border-radius:50%;background:{{ t.color }}"></div>
+      {{ t.nombre }}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="hero">
+    <div class="hero-title">Encontrá el mejor precio en insumos dentales</div>
+    <div class="hero-sub">Comparás todas las distribuidoras en un solo lugar</div>
+    <div class="search-wrap">
+      <input type="text" class="search-input" id="search-input"
+        placeholder="Ej: composite, anestesia, fresa, bracket..."
+        autocomplete="off">
+      <span class="search-icon">🔍</span>
+    </div>
+    <div class="search-hint">Escribí al menos 2 caracteres para buscar</div>
+  </div>
+
+  <div class="busqueda-layout">
+    <div class="resultados-header">
+      <div class="resultados-titulo" id="resultados-titulo">Buscá un producto</div>
+      <div class="resultados-count" id="resultados-count"></div>
+    </div>
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div>Buscando...</div>
+    </div>
+    <div class="productos-grid" id="productos-grid">
+      <div class="empty-state">
+        <div class="icon">🔍</div>
+        <p>Escribí en el buscador para ver precios<br>comparados de todas las distribuidoras</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PÁGINA: LISTA ═══ -->
+<div class="page" id="page-lista">
+  <div class="lista-page">
+
+    <div class="lista-page-header">
+      <div>
+        <div class="lista-page-title">Mi lista de compras</div>
+        <div class="lista-page-sub" id="lista-sub">0 productos · 0 distribuidoras</div>
+      </div>
+      <div class="lista-actions" id="lista-actions" style="display:none">
+        <button class="btn-secondary danger" onclick="limpiarLista()">🗑 Limpiar</button>
+        <button class="btn-secondary" onclick="copiarResumen()">📋 Copiar resumen</button>
+        <button class="btn-whatsapp" onclick="compartirWhatsApp()">💬 WhatsApp</button>
+      </div>
+    </div>
+
+    <div id="lista-metricas" style="display:none">
+      <div class="metricas">
+        <div class="metrica">
+          <div class="metrica-label">Total estimado</div>
+          <div class="metrica-valor" id="metrica-total">$0</div>
+        </div>
+        <div class="metrica">
+          <div class="metrica-label">Distribuidoras</div>
+          <div class="metrica-valor" id="metrica-tiendas">0</div>
+        </div>
+        <div class="metrica">
+          <div class="metrica-label">Productos</div>
+          <div class="metrica-valor" id="metrica-productos">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="lista-contenido"></div>
+
+    <div class="lista-global-footer" id="lista-footer-global" style="display:none">
+      <div>
+        <div class="global-total-label">Total estimado</div>
+        <div class="global-total-valor" id="global-total">$0</div>
+      </div>
+      <div class="global-footer-actions">
+        <button class="btn-secondary" onclick="copiarResumen()">📋 Copiar resumen</button>
+        <button class="btn-whatsapp" onclick="compartirWhatsApp()">💬 WhatsApp</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Estado ───────────────────────────────────
+let lista = JSON.parse(localStorage.getItem('odontoprecio_lista') || '[]');
+// Migrar lista vieja (sin cantidad) a nueva (con cantidad)
+lista = lista.map(p => ({ ...p, cantidad: p.cantidad || 1 }));
+let searchTimer = null;
+
+// ─── Init ──────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  actualizarContadorTab();
+  cargarStats();
+  document.getElementById('search-input').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    const q = e.target.value.trim();
+    if (q.length < 2) { mostrarVacio(); return; }
+    searchTimer = setTimeout(() => buscar(q), 350);
+  });
+});
+
+// ─── Navegación de pestañas ───────────────────
+function mostrarTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('page-' + tab).classList.add('active');
+  if (tab === 'lista') renderPaginaLista();
+}
+
+// ─── Búsqueda ─────────────────────────────────
+async function buscar(q) {
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('productos-grid').innerHTML = '';
+  document.getElementById('resultados-titulo').textContent = `Resultados para "${q}"`;
+  try {
+    const res = await fetch(`/api/buscar?q=${encodeURIComponent(q)}`);
+    const productos = await res.json();
+    document.getElementById('loading').style.display = 'none';
+    if (productos.length === 0) {
+      document.getElementById('productos-grid').innerHTML = `
+        <div class="empty-state"><div class="icon">🤷</div>
+        <p>No encontramos "<strong>${esc(q)}</strong>" en ninguna distribuidora.</p></div>`;
+      document.getElementById('resultados-count').textContent = '';
+      return;
+    }
+    document.getElementById('resultados-count').textContent =
+      `${productos.length} resultado${productos.length !== 1 ? 's' : ''}`;
+    renderProductos(productos);
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('productos-grid').innerHTML =
+      `<div class="empty-state"><p>Error al buscar. ¿Está corriendo el servidor?</p></div>`;
+  }
+}
+
+function mostrarVacio() {
+  document.getElementById('productos-grid').innerHTML = `
+    <div class="empty-state"><div class="icon">🔍</div>
+    <p>Escribí en el buscador para ver precios comparados</p></div>`;
+  document.getElementById('resultados-titulo').textContent = 'Buscá un producto';
+  document.getElementById('resultados-count').textContent = '';
+}
+
+// ─── Render productos ─────────────────────────
+function renderProductos(productos) {
+  const listaIds = lista.map(i => i.id);
+  document.getElementById('productos-grid').innerHTML = productos.map((p, i) => {
+    const enLista = listaIds.includes(p.id);
+    const imgHtml = p.imagen
+      ? `<img class="producto-img" src="${p.imagen}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      : '';
+    const placeholderStyle = p.imagen ? 'style="display:none"' : '';
+    return `
+    <div class="producto-card" style="animation-delay:${i*35}ms">
+      ${imgHtml}
+      <div class="producto-img-placeholder" ${placeholderStyle}>🦷</div>
+      <div class="producto-info">
+        <div class="tienda-badge" style="background:${p.tienda_color}">
+          <div class="tienda-dot"></div>${esc(p.tienda_nombre)}
+        </div>
+        <div class="producto-nombre" title="${esc(p.nombre)}">${esc(p.nombre)}</div>
+        <div class="producto-actualizado">Actualizado: ${esc(p.actualizado)}</div>
+      </div>
+      <div class="producto-right">
+        <div class="producto-precio">${esc(p.precio_fmt)}</div>
+        <button class="btn-agregar ${enLista ? 'agregado' : ''}"
+          onclick="toggleLista(${JSON.stringify(p).replace(/"/g,'&quot;')})"
+          id="btn-${p.id}"
+        >${enLista ? '✓ En lista' : '+ Agregar'}</button>
+        ${p.url ? `<a href="${p.url}" target="_blank" class="btn-ver">Ver en tienda →</a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Lista: agregar/quitar ────────────────────
+function toggleLista(producto) {
+  const idx = lista.findIndex(i => i.id === producto.id);
+  const btn = document.getElementById(`btn-${producto.id}`);
+  if (idx >= 0) {
+    lista.splice(idx, 1);
+    if (btn) { btn.textContent = '+ Agregar'; btn.classList.remove('agregado'); }
+    mostrarToast('Quitado de la lista');
+  } else {
+    lista.push({ ...producto, cantidad: 1 });
+    if (btn) { btn.textContent = '✓ En lista'; btn.classList.add('agregado'); }
+    mostrarToast(`✓ Agregado — ${producto.precio_fmt}`);
+  }
+  guardarLista();
+  actualizarContadorTab();
+}
+
+function cambiarCantidad(id, delta) {
+  const item = lista.find(p => p.id === id);
+  if (!item) return;
+  item.cantidad = Math.max(1, (item.cantidad || 1) + delta);
+  guardarLista();
+  renderPaginaLista();
+}
+
+function quitarDeLista(id) {
+  lista = lista.filter(p => p.id !== id);
+  // resetear boton si esta en pantalla
+  const btn = document.getElementById(`btn-${id}`);
+  if (btn) { btn.textContent = '+ Agregar'; btn.classList.remove('agregado'); }
+  guardarLista();
+  actualizarContadorTab();
+  renderPaginaLista();
+}
+
+// ─── Render página lista ──────────────────────
+function renderPaginaLista() {
+  const contenido = document.getElementById('lista-contenido');
+  const footer = document.getElementById('lista-footer-global');
+  const metricas = document.getElementById('lista-metricas');
+  const actions = document.getElementById('lista-actions');
+
+  if (lista.length === 0) {
+    contenido.innerHTML = `
+      <div class="lista-vacia-full">
+        <div class="icon">🛒</div>
+        <h3>Tu lista está vacía</h3>
+        <p>Buscá productos y agregálos para armar tu lista de compras</p>
+        <button class="btn-ir-buscar" onclick="mostrarTab('buscar')">Ir a buscar →</button>
+      </div>`;
+    footer.style.display = 'none';
+    metricas.style.display = 'none';
+    actions.style.display = 'none';
+    document.getElementById('lista-sub').textContent = '0 productos · 0 distribuidoras';
+    return;
+  }
+
+  // Agrupar por tienda
+  const grupos = {};
+  lista.forEach(p => {
+    if (!grupos[p.tienda_slug]) grupos[p.tienda_slug] = {
+      nombre: p.tienda_nombre, color: p.tienda_color,
+      url_base: p.url ? new URL(p.url).origin : '#',
+      items: []
+    };
+    grupos[p.tienda_slug].items.push(p);
+  });
+
+  let totalGlobal = 0;
+  const nTiendas = Object.keys(grupos).length;
+
+  const cardsHTML = Object.values(grupos).map(g => {
+    const subtotal = g.items.reduce((s, p) => s + (p.precio || 0) * (p.cantidad || 1), 0);
+    totalGlobal += subtotal;
+
+    const itemsHTML = g.items.map(p => {
+      const imgHtml = p.imagen
+        ? `<img class="lista-item-img" src="${p.imagen}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        : '';
+      const placeholderStyle = p.imagen ? 'style="display:none"' : '';
+      const precioUnitario = formatPrecio(p.precio);
+      const precioTotal = formatPrecio((p.precio || 0) * (p.cantidad || 1));
+      const mostrarTotal = (p.cantidad || 1) > 1;
+      return `
+        <div class="lista-item-row">
+          ${imgHtml}
+          <div class="lista-item-img-placeholder" ${placeholderStyle}>🦷</div>
+          <div class="lista-item-info">
+            <div class="lista-item-nombre" title="${esc(p.nombre)}">${esc(p.nombre)}</div>
+            <div class="lista-item-precio">${precioUnitario}${mostrarTotal ? ` × ${p.cantidad} = <strong>${precioTotal}</strong>` : ''}</div>
+          </div>
+          <div class="lista-item-controls">
+            <div class="qty-wrap">
+              <button class="qty-btn" onclick="cambiarCantidad('${p.id}', -1)">−</button>
+              <span class="qty-val">${p.cantidad || 1}</span>
+              <button class="qty-btn" onclick="cambiarCantidad('${p.id}', 1)">+</button>
+            </div>
+            <button class="btn-quitar" onclick="quitarDeLista('${p.id}')" title="Quitar">×</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="tienda-card-lista">
+        <div class="tienda-card-header">
+          <div class="tienda-card-nombre">
+            <div style="width:10px;height:10px;border-radius:50%;background:${g.color};flex-shrink:0"></div>
+            ${esc(g.nombre)}
+          </div>
+          <div class="tienda-card-subtotal">${formatPrecio(subtotal)}</div>
+        </div>
+        <div class="lista-items">${itemsHTML}</div>
+        <div class="tienda-card-footer">
+          <span class="tienda-card-footer-info">${g.items.length} producto${g.items.length !== 1 ? 's' : ''}</span>
+          <a class="ir-tienda" href="${g.url_base}" target="_blank">Ver tienda →</a>
+        </div>
+      </div>`;
+  }).join('');
+
+  contenido.innerHTML = `<div class="tiendas-grid">${cardsHTML}</div>`;
+
+  // Actualizar métricas
+  document.getElementById('metrica-total').textContent = formatPrecio(totalGlobal);
+  document.getElementById('metrica-tiendas').textContent = nTiendas;
+  document.getElementById('metrica-productos').textContent = lista.length;
+  document.getElementById('global-total').textContent = formatPrecio(totalGlobal);
+  document.getElementById('lista-sub').textContent =
+    `${lista.length} producto${lista.length !== 1 ? 's' : ''} · ${nTiendas} distribuidora${nTiendas !== 1 ? 's' : ''}`;
+
+  metricas.style.display = 'block';
+  footer.style.display = 'flex';
+  actions.style.display = 'flex';
+}
+
+// ─── Acciones lista ───────────────────────────
+function limpiarLista() {
+  if (!confirm('¿Limpiar toda la lista?')) return;
+  lista = [];
+  guardarLista();
+  actualizarContadorTab();
+  renderPaginaLista();
+  document.querySelectorAll('.btn-agregar.agregado').forEach(b => {
+    b.textContent = '+ Agregar'; b.classList.remove('agregado');
+  });
+  mostrarToast('Lista limpiada');
+}
+
+function copiarResumen() {
+  if (!lista.length) return;
+  const grupos = {};
+  lista.forEach(p => {
+    if (!grupos[p.tienda_slug]) grupos[p.tienda_slug] = { nombre: p.tienda_nombre, items: [] };
+    grupos[p.tienda_slug].items.push(p);
+  });
+  let txt = '🦷 OdontoPrecio — Lista de compras\n' + '='.repeat(38) + '\n\n';
+  let total = 0;
+  Object.values(grupos).forEach(g => {
+    const sub = g.items.reduce((s, p) => s + (p.precio||0)*(p.cantidad||1), 0);
+    total += sub;
+    txt += `📦 ${g.nombre}\n`;
+    g.items.forEach(p => {
+      const cant = p.cantidad > 1 ? ` x${p.cantidad}` : '';
+      txt += `   • ${p.nombre}${cant} — ${formatPrecio((p.precio||0)*(p.cantidad||1))}\n`;
+      if (p.url) txt += `     ${p.url}\n`;
+    });
+    txt += `   Subtotal: ${formatPrecio(sub)}\n\n`;
+  });
+  txt += '='.repeat(38) + '\n';
+  txt += `TOTAL: ${formatPrecio(total)}`;
+  navigator.clipboard.writeText(txt).then(() => mostrarToast('📋 Resumen copiado'));
+}
+
+function compartirWhatsApp() {
+  if (!lista.length) return;
+  const grupos = {};
+  lista.forEach(p => {
+    if (!grupos[p.tienda_slug]) grupos[p.tienda_slug] = { nombre: p.tienda_nombre, items: [] };
+    grupos[p.tienda_slug].items.push(p);
+  });
+  let txt = '🦷 *Lista de insumos — OdontoPrecio*\n\n';
+  let total = 0;
+  Object.values(grupos).forEach(g => {
+    const sub = g.items.reduce((s, p) => s + (p.precio||0)*(p.cantidad||1), 0);
+    total += sub;
+    txt += `*${g.nombre}*\n`;
+    g.items.forEach(p => {
+      const cant = p.cantidad > 1 ? ` x${p.cantidad}` : '';
+      txt += `• ${p.nombre}${cant} — ${formatPrecio((p.precio||0)*(p.cantidad||1))}\n`;
+    });
+    txt += `_Subtotal: ${formatPrecio(sub)}_\n\n`;
+  });
+  txt += `*Total: ${formatPrecio(total)}*`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
+}
+
+// ─── Utils ────────────────────────────────────
+function guardarLista() {
+  localStorage.setItem('odontoprecio_lista', JSON.stringify(lista));
+}
+
+function actualizarContadorTab() {
+  const el = document.getElementById('lista-count');
+  el.textContent = lista.length;
+  el.className = 'tab-count' + (lista.length === 0 ? ' empty' : '');
+}
+
+function formatPrecio(n) {
+  if (!n) return '$0';
+  return '$' + Math.round(n).toLocaleString('es-AR');
+}
+
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function mostrarToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+async function cargarStats() {
+  try {
+    const r = await fetch('/api/stats');
+    const d = await r.json();
+    document.getElementById('stats-text').textContent = `${d.total} productos indexados`;
+  } catch(e) {}
+}
+</script>
+</body>
+</html>
