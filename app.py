@@ -18,6 +18,33 @@ def get_productos():
     return _cache["productos"]
 
 
+def _actualizar_si_es_necesario():
+    """
+    Corre el scraper en background si los datos tienen mas de 7 dias.
+    Se llama automaticamente al arrancar el servidor.
+    """
+    import datetime
+    try:
+        from scraper import DB_PATH
+        if os.path.exists(DB_PATH):
+            mod_time = os.path.getmtime(DB_PATH)
+            edad_dias = (datetime.datetime.now().timestamp() - mod_time) / 86400
+            if edad_dias < 1:
+                print(f"Datos actualizados hace {edad_dias:.1f} dias (menos de 1 dia) — no es necesario scrapear.")
+                return
+            print(f"Datos tienen {edad_dias:.1f} dias — actualizando precios...")
+        else:
+            print("No hay datos — scrapeando por primera vez...")
+
+        def _run():
+            nuevos = correr_scraper()
+            _cache["productos"] = nuevos
+            print(f"Auto-actualizacion completada: {len(nuevos)} productos.")
+        threading.Thread(target=_run, daemon=True).start()
+    except Exception as e:
+        print(f"Error en auto-actualizacion: {e}")
+
+
 # ─── Sinónimos odontológicos ───────────────────────────────────
 # Cada grupo: buscar cualquiera encuentra todos los demás
 SINONIMOS = [
@@ -224,6 +251,9 @@ def stats():
         por_tienda[t] = por_tienda.get(t, 0) + 1
     return jsonify({"total": len(productos), "por_tienda": por_tienda})
 
+
+# Arrancar auto-actualizacion al iniciar (funciona tanto con gunicorn como python app.py)
+_actualizar_si_es_necesario()
 
 if __name__ == "__main__":
     import os
