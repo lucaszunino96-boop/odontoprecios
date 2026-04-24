@@ -388,7 +388,9 @@ def scrape_con_sitemap(tienda):
 
     # Filtrar URLs que sean de productos individuales (no categorias)
     urls = [u for u in urls if u.rstrip("/").split("/")[-1] != ""]
-    # Excluir la pagina raiz de /productos/
+    # Excluir paginas raiz y categorias
+    EXCLUIR = ["/categoria-producto/", "/product-category/", "/tag/", "/categoria/"]
+    urls = [u for u in urls if not any(x in u for x in EXCLUIR)]
     urls = [u for u in urls if u.rstrip("/") not in (
         tienda["url_base"] + "/productos",
         tienda["url_base"] + "/productos/",
@@ -453,9 +455,14 @@ def scrape_paginado_woocommerce(tienda):
 
             urls_pagina = []
             for item in items:
-                link = item.select_one("a[href]")
+                # Buscar link al producto (no a categoria)
+                link = item.select_one("a.woocommerce-LoopProduct-link, a.ast-loop-product__link, h2 a, h3 a, a[href]")
                 if link:
-                    urls_pagina.append(link["href"])
+                    url_prod = link["href"]
+                    # Filtrar categorias y tags
+                    if any(x in url_prod for x in ['/categoria-producto/', '/product-category/', '/tag/', '/categoria/']):
+                        continue
+                    urls_pagina.append(url_prod)
 
             print(f"  Página {page}: {len(urls_pagina)} productos")
 
