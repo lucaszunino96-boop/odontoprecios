@@ -160,9 +160,11 @@ def index():
 def buscar():
     q = request.args.get("q", "").strip().lower()
 
-    # Limitar largo de query para evitar abusos
-    if len(q) < 2 or len(q) > 100:
+    # Limitar largo de query
+    if len(q) < 2:
         return jsonify([])
+    if len(q) > 100:
+        return jsonify({"error": "Query demasiado larga"}), 400
 
     productos = get_productos()
     terminos_variantes, sinonimos_set = preparar_query(q)
