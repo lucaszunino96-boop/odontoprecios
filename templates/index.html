@@ -338,10 +338,25 @@ body {
 }
 
 /* ─── CONTENIDO BUSQUEDA ────────────────────────────────── */
-.busqueda-wrap {
-  max-width: 900px;
+.resultados-wrap {
+  max-width: 1400px;
   margin: 0 auto;
   padding: 24px 24px 48px;
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  align-items: start;
+}
+.col-distribuidoras { min-width: 0; }
+.col-ml {
+  position: sticky;
+  top: 120px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
 }
 .results-header {
   display: flex;
@@ -847,7 +862,116 @@ body {
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 
+/* ─── MERCADO LIBRE ─────────────────────────────────────── */
+/* ml-section removida - integrada en col-ml */
+.ml-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-bg);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.ml-logo {
+  background: #FFE600;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #333;
+  letter-spacing: .5px;
+}
+.ml-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--c-text2);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.ml-count { font-size: 12px; color: var(--c-text3); margin-left: auto; }
+.ml-grid { display: flex; flex-direction: column; gap: 6px; padding: 10px; }
+.ml-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  transition: border-color .15s, box-shadow .15s;
+}
+.ml-card:hover { border-color: #FFE600; box-shadow: var(--shadow-md); }
+.ml-img-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 7px;
+  background: var(--c-bg);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+.ml-img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+.ml-info { min-width: 0; }
+.ml-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #FFE600;
+  color: #333;
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.ml-nombre {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.ml-meta { font-size: 11px; color: var(--c-text3); }
+.ml-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.ml-precio {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -.3px;
+  white-space: nowrap;
+}
+.ml-ver {
+  font-size: 11.5px;
+  color: #3483FA;
+  text-decoration: none;
+  font-weight: 500;
+}
+.ml-ver:hover { text-decoration: underline; }
+.ml-loading {
+  text-align: center;
+  padding: 24px;
+  color: var(--c-text3);
+  font-size: 13px;
+}
+
 /* ─── RESPONSIVE ────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .resultados-wrap {
+    grid-template-columns: 1fr;
+  }
+  .col-ml {
+    position: static;
+    max-height: 400px;
+  }
+}
 @media (max-width: 700px) {
   .tiendas-grid { grid-template-columns: 1fr; }
   .metricas { grid-template-columns: repeat(3, 1fr); }
@@ -939,28 +1063,56 @@ body {
     </div>
   </div>
 
-  <div class="busqueda-wrap">
-    <div class="results-header">
-      <div class="results-label" id="results-label">Buscá un producto</div>
-      <div class="results-count" id="results-count"></div>
-    </div>
-    <div class="loading" id="loading">
-      <div class="loading-dots">
-        <div class="loading-dot"></div>
-        <div class="loading-dot"></div>
-        <div class="loading-dot"></div>
+  <div class="resultados-wrap">
+
+    <!-- COLUMNA IZQUIERDA: Distribuidoras -->
+    <div class="col-distribuidoras">
+      <div class="results-header">
+        <div class="results-label" id="results-label">Buscá un producto</div>
+        <div class="results-count" id="results-count"></div>
       </div>
-      <p>Buscando en todas las distribuidoras...</p>
-    </div>
-    <div class="products-grid" id="products-grid">
-      <div class="empty-state">
-        <span class="es-icon">🔍</span>
-        <h3>Buscá un producto</h3>
-        <p>Escribí en el buscador para comparar precios<br>de todas las distribuidoras al mismo tiempo</p>
+      <div class="loading" id="loading">
+        <div class="loading-dots">
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+        </div>
+        <p>Buscando en distribuidoras...</p>
+      </div>
+      <div class="products-grid" id="products-grid">
+        <div class="empty-state">
+          <span class="es-icon">🔍</span>
+          <h3>Buscá un producto</h3>
+          <p>Escribí en el buscador para comparar precios<br>de todas las distribuidoras al mismo tiempo</p>
+        </div>
       </div>
     </div>
+
+    <!-- COLUMNA DERECHA: Mercado Libre -->
+    <div class="col-ml">
+      <div class="ml-header">
+        <span class="ml-logo">ML</span>
+        <span class="ml-label">Mercado Libre</span>
+        <span class="ml-count" id="ml-count"></span>
+      </div>
+      <div class="loading" id="ml-loading" style="display:none">
+        <div class="loading-dots">
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+        </div>
+        <p>Buscando en ML...</p>
+      </div>
+      <div class="ml-grid" id="ml-grid">
+        <div class="empty-state">
+          <span class="es-icon" style="font-size:32px;opacity:.3">🛒</span>
+          <h3 style="font-size:14px">Mercado Libre</h3>
+          <p style="font-size:12px">Resultados de ML aparecen acá</p>
+        </div>
+      </div>
+    </div>
+
   </div>
-</div>
 
 <!-- ═══ LISTA ═══ -->
 <div class="page" id="page-lista">
@@ -1072,6 +1224,52 @@ async function buscar(q) {
     document.getElementById('products-grid').innerHTML =
       `<div class="empty-state"><span class="es-icon">⚠️</span><h3>Error</h3><p>¿Está corriendo el servidor?</p></div>`;
   }
+  // Buscar en ML en paralelo
+  buscarML(q);
+}
+
+async function buscarML(q) {
+  const grid = document.getElementById('ml-grid');
+  const count = document.getElementById('ml-count');
+  const mlLoading = document.getElementById('ml-loading');
+  grid.innerHTML = '';
+  mlLoading.style.display = 'block';
+  count.textContent = '';
+  try {
+    const url = `https://api.mercadolibre.com/sites/MLA/search?q=${encodeURIComponent(q)}&limit=6`;
+    const r = await fetch(url);
+    const data = await r.json();
+    const items = (data.results || []).filter(p => p.price > 0);
+    if (!items.length) {
+      mlLoading.style.display = 'none';
+      grid.innerHTML = '<div class="ml-loading">Sin resultados en Mercado Libre</div>';
+      return;
+    }
+    mlLoading.style.display = 'none';
+    count.textContent = `${items.length} resultado${items.length !== 1 ? 's' : ''}`;
+    grid.innerHTML = items.map(p => {
+      const precio = '$' + Math.round(p.price).toLocaleString('es-AR');
+      const condicion = p.condition === 'new' ? 'Nuevo' : 'Usado';
+      const vendedor = p.seller?.nickname || '';
+      const img = p.thumbnail ? `<img class="ml-img" src="${p.thumbnail.replace('http://','https://')}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='📦'">` : '📦';
+      return `
+        <div class="ml-card">
+          <div class="ml-img-wrap">${img}</div>
+          <div class="ml-info">
+            <div class="ml-badge">ML · ${condicion}</div>
+            <div class="ml-nombre" title="${esc(p.title)}">${esc(p.title)}</div>
+            <div class="ml-meta">${esc(vendedor)}</div>
+          </div>
+          <div class="ml-right">
+            <div class="ml-precio">${precio}</div>
+            <a href="${p.permalink}" target="_blank" rel="noopener" class="ml-ver">Ver en ML →</a>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    mlLoading.style.display = 'none';
+    grid.innerHTML = '<div class="ml-loading">No se pudo conectar con Mercado Libre</div>';
+  }
 }
 
 function mostrarVacio() {
@@ -1083,6 +1281,13 @@ function mostrarVacio() {
     </div>`;
   document.getElementById('results-label').textContent = 'Buscá un producto';
   document.getElementById('results-count').textContent = '';
+  document.getElementById('ml-grid').innerHTML = `
+    <div class="empty-state">
+      <span class="es-icon" style="font-size:32px">🛒</span>
+      <h3 style="font-size:15px">Mercado Libre</h3>
+      <p>Los resultados de ML van a aparecer acá</p>
+    </div>`;
+  document.getElementById('ml-count').textContent = '';
 }
 
 // ─── RENDER PRODUCTOS ─────────────────────────────────────
