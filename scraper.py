@@ -173,7 +173,7 @@ TIENDAS = [
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "productos.json")
 MAX_WORKERS = 5
-DELAY = 0.3
+DELAY = 0.1
 
 # ─── HTTP ─────────────────────────────────────────────────────────────────────
 def fetch(url, timeout=20, reintentos=2):
