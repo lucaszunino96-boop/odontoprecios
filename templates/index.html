@@ -3,7 +3,51 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OdontoPrecio — Comparador de insumos dentales Argentina</title>
+
+<!-- SEO -->
+<title>OdontoPrecio — Comparador de precios de insumos dentales Argentina</title>
+<meta name="description" content="Compará precios de insumos odontológicos en más de 25 distribuidoras dentales de Argentina. Encontrá el mejor precio en composites, anestesias, fresas, brackets y más.">
+<meta name="keywords" content="insumos odontológicos argentina, comparador precios dentales, composite precio, anestesia dental precio, material dental argentina">
+<meta name="author" content="OdontoPrecio">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://odontoprecios.onrender.com">
+
+<!-- Open Graph -->
+<meta property="og:title" content="OdontoPrecio — Comparador de insumos dentales Argentina">
+<meta property="og:description" content="Compará precios en más de 25 distribuidoras dentales. Composite, anestesia, fresas, brackets y mucho más.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://odontoprecios.onrender.com">
+<meta property="og:image" content="https://odontoprecios.onrender.com/static/og.png">
+<meta property="og:locale" content="es_AR">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="OdontoPrecio — Comparador de insumos dentales">
+<meta name="twitter:description" content="Encontrá el mejor precio en insumos odontológicos de Argentina.">
+
+<!-- Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-12PEY6GW62"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-12PEY6GW62');
+</script>
+
+<!-- Schema.org structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "OdontoPrecio",
+  "description": "Comparador de precios de insumos odontológicos en Argentina",
+  "url": "https://odontoprecios.onrender.com",
+  "applicationCategory": "HealthApplication",
+  "operatingSystem": "Web",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "ARS" }
+}
+</script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
 <style>
@@ -49,17 +93,8 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 .tiendas-count-num { font-size:13px; font-weight:700; color:var(--accent); }
 .tiendas-ver-btn { background:none; border:1px solid var(--border2); border-radius:20px; padding:3px 10px; font-size:11.5px; font-weight:500; color:var(--text2); cursor:pointer; transition:all .15s; white-space:nowrap; }
 .tiendas-ver-btn:hover { border-color:var(--accent); color:var(--accent); }
-.tiendas-dropdown {
-  display:none;
-  position:absolute;
-  top:calc(58px + 44px);
-  left:0; right:0;
-  background:var(--surface);
-  border-bottom:1px solid var(--border);
-  z-index:150;
-  padding:12px 24px;
-}
-.tiendas-dropdown.open { display:flex; flex-wrap:wrap; gap:10px 16px; }
+.tiendas-dropdown { display:none; position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-top:none; border-radius:0 0 var(--r-lg) var(--r-lg); z-index:100; padding:14px 24px 16px; box-shadow:var(--sh-md); }
+.tiendas-dropdown.open { display:flex; flex-wrap:wrap; gap:10px 20px; }
 .tienda-chip { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:500; color:var(--text2); white-space:nowrap; }
 .chip-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
 
@@ -115,7 +150,11 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 .tienda-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600; color:#fff; margin-bottom:5px; }
 .badge-dot { width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,.55); flex-shrink:0; }
 .prod-nombre { font-size:13.5px; font-weight:600; color:var(--text); line-height:1.35; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.prod-meta { font-size:11.5px; color:var(--text3); }
+.prod-meta { font-size:11.5px; color:var(--text3); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.prod-historial { font-size:11px; font-weight:600; }
+.hist-sube { color:#e63946; }
+.hist-baja { color:var(--accent); }
+.hist-igual { color:var(--text3); }
 .prod-right { display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex-shrink:0; }
 .prod-precio { font-family:var(--font-d); font-size:21px; font-weight:700; color:var(--text); letter-spacing:-.5px; white-space:nowrap; }
 .prod-actions { display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
@@ -123,8 +162,11 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 .btn-agregar:hover { background:var(--accent2); transform:scale(1.02); }
 .btn-agregar.agregado { background:var(--surface2); color:var(--text2); }
 .btn-agregar.agregado:hover { background:var(--border2); }
+.prod-links { display:flex; align-items:center; gap:10px; }
 .btn-ver { font-size:11.5px; color:var(--accent); text-decoration:none; font-weight:500; }
 .btn-ver:hover { text-decoration:underline; }
+.btn-reportar { font-size:11px; color:var(--text3); background:none; border:none; cursor:pointer; padding:0; transition:color .15s; }
+.btn-reportar:hover { color:var(--danger); }
 
 /* SECCIÓN LISTA */
 .lista-wrap { max-width:1000px; margin:0 auto; padding:28px 24px 56px; }
@@ -139,14 +181,10 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 .btn-sm.primary:hover { background:var(--accent2); }
 .btn-sm.whatsapp { background:var(--wa); border-color:var(--wa); color:#fff; }
 .btn-sm.whatsapp:hover { background:#1ebe5a; }
-
-/* MÉTRICAS */
 .metricas { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px; }
 .metrica { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px 20px; }
 .metrica-label { font-size:11px; font-weight:600; color:var(--text2); text-transform:uppercase; letter-spacing:.6px; margin-bottom:5px; }
 .metrica-val { font-family:var(--font-d); font-size:26px; font-weight:700; letter-spacing:-.5px; }
-
-/* GRID TIENDAS */
 .tiendas-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
 .tienda-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--sh-sm); }
 .tienda-card-hdr { padding:14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); background:var(--bg); }
@@ -171,14 +209,10 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 .tienda-card-ftr-info { font-size:12px; color:var(--text2); }
 .ir-tienda { font-size:12px; color:var(--accent); text-decoration:none; font-weight:600; }
 .ir-tienda:hover { text-decoration:underline; }
-
-/* FOOTER LISTA */
 .lista-footer { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px 24px; display:flex; align-items:center; justify-content:space-between; margin-top:16px; box-shadow:var(--sh-sm); }
 .footer-total-label { font-size:12px; color:var(--text2); margin-bottom:3px; }
 .footer-total-val { font-family:var(--font-d); font-size:30px; font-weight:700; letter-spacing:-.5px; }
 .footer-btns { display:flex; gap:8px; }
-
-/* LISTA VACÍA */
 .lista-vacia { text-align:center; padding:80px 24px; }
 .lista-vacia-icon { font-size:56px; margin-bottom:18px; opacity:.3; display:block; }
 .lista-vacia h3 { font-family:var(--font-d); font-size:22px; font-weight:700; margin-bottom:8px; }
@@ -186,9 +220,43 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 .btn-ir-buscar { display:inline-block; margin-top:24px; background:var(--accent); color:#fff; border:none; padding:11px 28px; border-radius:50px; font-family:var(--font-b); font-size:14px; font-weight:600; cursor:pointer; transition:background .15s; }
 .btn-ir-buscar:hover { background:var(--accent2); }
 
+/* SECCIÓN ACERCA DE */
+.acerca-wrap { max-width:780px; margin:0 auto; padding:40px 24px 64px; }
+.acerca-wrap h1 { font-family:var(--font-d); font-size:32px; font-weight:700; margin-bottom:8px; letter-spacing:-.4px; }
+.acerca-wrap .lead { font-size:16px; color:var(--text2); margin-bottom:32px; line-height:1.6; }
+.acerca-section { margin-bottom:32px; }
+.acerca-section h2 { font-size:16px; font-weight:700; margin-bottom:10px; color:var(--text); }
+.acerca-section p { font-size:14px; color:var(--text2); line-height:1.7; margin-bottom:8px; }
+.acerca-section ul { padding-left:18px; }
+.acerca-section ul li { font-size:14px; color:var(--text2); line-height:1.7; margin-bottom:4px; }
+.aviso-legal { background:var(--surface2); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px 20px; margin-top:32px; }
+.aviso-legal p { font-size:12.5px; color:var(--text2); line-height:1.6; }
+.aviso-legal strong { color:var(--text); }
+
+/* MODAL REPORTE */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; align-items:center; justify-content:center; padding:20px; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--surface); border-radius:var(--r-lg); padding:24px; width:100%; max-width:440px; box-shadow:var(--sh-lg); }
+.modal-title { font-size:16px; font-weight:700; margin-bottom:4px; }
+.modal-sub { font-size:12.5px; color:var(--text2); margin-bottom:18px; }
+.modal-prod { background:var(--bg); border-radius:var(--r); padding:10px 14px; margin-bottom:16px; font-size:13px; font-weight:500; color:var(--text); }
+.modal-label { font-size:12px; font-weight:600; color:var(--text2); margin-bottom:5px; display:block; }
+.modal-select, .modal-textarea { width:100%; padding:9px 12px; border:1.5px solid var(--border2); border-radius:var(--r); font-family:var(--font-b); font-size:13px; color:var(--text); background:var(--surface); margin-bottom:14px; outline:none; transition:border-color .15s; }
+.modal-select:focus, .modal-textarea:focus { border-color:var(--accent); }
+.modal-textarea { resize:vertical; min-height:80px; }
+.modal-btns { display:flex; gap:8px; justify-content:flex-end; }
+.btn-modal-cancel { padding:8px 16px; border-radius:8px; border:1.5px solid var(--border2); background:var(--surface); color:var(--text2); font-family:var(--font-b); font-size:13px; cursor:pointer; }
+.btn-modal-send { padding:8px 20px; border-radius:8px; border:none; background:var(--accent); color:#fff; font-family:var(--font-b); font-size:13px; font-weight:600; cursor:pointer; transition:background .15s; }
+.btn-modal-send:hover { background:var(--accent2); }
+
 /* TOAST */
-.toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--text); color:#fff; padding:11px 22px; border-radius:50px; font-size:13px; font-weight:500; z-index:1000; transition:transform .3s cubic-bezier(.175,.885,.32,1.275); pointer-events:none; white-space:nowrap; box-shadow:0 8px 32px rgba(0,0,0,.2); }
+.toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--text); color:#fff; padding:11px 22px; border-radius:50px; font-size:13px; font-weight:500; z-index:2000; transition:transform .3s cubic-bezier(.175,.885,.32,1.275); pointer-events:none; white-space:nowrap; box-shadow:0 8px 32px rgba(0,0,0,.2); }
 .toast.show { transform:translateX(-50%) translateY(0); }
+
+/* AVISO INFERIOR */
+.aviso-inferior { background:var(--surface); border-top:1px solid var(--border); padding:12px 24px; text-align:center; font-size:11.5px; color:var(--text3); }
+.aviso-inferior a { color:var(--accent); text-decoration:none; }
+.aviso-inferior a:hover { text-decoration:underline; }
 
 /* RESPONSIVE */
 @media (max-width:700px) {
@@ -198,6 +266,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
   .prod-right { grid-column:1/-1; flex-direction:row; justify-content:space-between; align-items:center; }
   .header-stats { display:none; }
   .hero { padding:40px 20px 48px; }
+  .acerca-wrap { padding:28px 20px 48px; }
 }
 </style>
 </head>
@@ -230,8 +299,12 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
       Mi lista
       <span class="tab-badge empty" id="tab-badge">0</span>
     </div>
+    <div class="tab" id="tab-acerca" onclick="mostrarTab('acerca')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      Acerca de
+    </div>
     <div class="tiendas-bar">
-      <span class="tiendas-count-label">Comparando precios en</span>
+      <span class="tiendas-count-label">Comparando en</span>
       <span class="tiendas-count-num">{{ tiendas|length }}</span>
       <span class="tiendas-count-label">distribuidoras</span>
       <button class="tiendas-ver-btn" onclick="toggleVerTiendas()" id="btn-ver-tiendas">Ver cuáles →</button>
@@ -261,7 +334,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
         <input type="text" class="search-input" id="search-input"
           placeholder="Ej: composite, anestesia, fresa, bracket..."
           autocomplete="off" spellcheck="false">
-        <button class="search-btn">
+        <button class="search-btn" onclick="buscarDesdeBtn()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </button>
       </div>
@@ -275,9 +348,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
       <div class="results-count" id="results-count"></div>
     </div>
     <div class="loading" id="loading">
-      <div class="loading-dots">
-        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
-      </div>
+      <div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
       <p>Buscando en todas las distribuidoras...</p>
     </div>
     <div class="products-grid" id="products-grid">
@@ -325,6 +396,80 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
   </div>
 </div>
 
+<!-- ══ ACERCA DE ══ -->
+<div class="page" id="page-acerca">
+  <div class="acerca-wrap">
+    <h1>Acerca de OdontoPrecio</h1>
+    <p class="lead">Comparador de precios de insumos odontológicos de Argentina. Buscamos los precios de las principales distribuidoras del país para que puedas encontrar el mejor precio sin perder tiempo.</p>
+
+    <div class="acerca-section">
+      <h2>🦷 ¿Qué es OdontoPrecio?</h2>
+      <p>OdontoPrecio es una herramienta gratuita para odontólogos y profesionales de la salud bucal que permite comparar precios de insumos dentales en más de 25 distribuidoras de Argentina en tiempo real.</p>
+      <p>No vendemos productos ni cobramos comisiones. Simplemente mostramos los precios públicos de cada tienda para que puedas tomar la mejor decisión.</p>
+    </div>
+
+    <div class="acerca-section">
+      <h2>🏪 ¿Qué distribuidoras incluimos?</h2>
+      <p>Actualmente comparamos precios de las siguientes distribuidoras:</p>
+      <ul id="lista-tiendas-acerca">{% for t in tiendas %}<li>{{ t.nombre }}</li>{% endfor %}</ul>
+      <p style="margin-top:8px">¿Falta alguna distribuidora? <a href="mailto:odontoprecio@gmail.com" style="color:var(--accent)">Escribinos</a> y la agregamos.</p>
+    </div>
+
+    <div class="acerca-section">
+      <h2>🔄 ¿Con qué frecuencia se actualizan los precios?</h2>
+      <p>Los precios se actualizan automáticamente todos los días. Como los precios en Argentina cambian frecuentemente, te recomendamos siempre verificar el precio final en la tienda antes de comprar.</p>
+    </div>
+
+    <div class="acerca-section">
+      <h2>💡 ¿Cómo usar OdontoPrecio?</h2>
+      <ul>
+        <li>Escribí el nombre del insumo en el buscador (ej: "composite 3m", "anestesia carpule")</li>
+        <li>Aparecen los resultados ordenados por relevancia y precio</li>
+        <li>Hacé clic en "+ Agregar" para sumar productos a tu lista de compras</li>
+        <li>En "Mi lista" podés ver el total por distribuidora y compartirlo por WhatsApp</li>
+      </ul>
+    </div>
+
+    <div class="acerca-section">
+      <h2>⚠️ Precios incorrectos</h2>
+      <p>Si encontrás un precio que no corresponde, podés reportarlo usando el botón "Reportar precio" en cada resultado. Revisamos todos los reportes y corregimos los errores.</p>
+    </div>
+
+    <div class="aviso-legal">
+      <p><strong>Aviso legal:</strong> Los precios mostrados en OdontoPrecio son obtenidos automáticamente de los sitios web de cada distribuidora y tienen carácter informativo. Pueden no estar actualizados al momento de la consulta. OdontoPrecio no se responsabiliza por diferencias entre los precios mostrados y los precios finales de cada tienda. Siempre verificá el precio antes de realizar una compra. No tenemos ninguna relación comercial con las distribuidoras listadas — el orden en que aparecen es aleatorio.</p>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL REPORTE -->
+<div class="modal-overlay" id="modal-reporte">
+  <div class="modal">
+    <div class="modal-title">Reportar precio incorrecto</div>
+    <div class="modal-sub">Ayudanos a mantener los precios actualizados</div>
+    <div class="modal-prod" id="modal-prod-nombre">—</div>
+    <label class="modal-label">¿Cuál es el problema?</label>
+    <select class="modal-select" id="modal-motivo">
+      <option value="precio_diferente">El precio es diferente al de la tienda</option>
+      <option value="sin_stock">El producto está sin stock</option>
+      <option value="producto_inexistente">El producto ya no existe</option>
+      <option value="precio_viejo">El precio está desactualizado</option>
+      <option value="otro">Otro</option>
+    </select>
+    <label class="modal-label">Comentario (opcional)</label>
+    <textarea class="modal-textarea" id="modal-comentario" placeholder="Ej: el precio real es $50.000, vi la oferta en la tienda..."></textarea>
+    <div class="modal-btns">
+      <button class="btn-modal-cancel" onclick="cerrarReporte()">Cancelar</button>
+      <button class="btn-modal-send" onclick="enviarReporte()">Enviar reporte</button>
+    </div>
+  </div>
+</div>
+
+<!-- AVISO INFERIOR -->
+<div class="aviso-inferior" id="aviso-inferior">
+  Los precios son informativos y pueden variar. Verificá en la tienda antes de comprar.
+  <a href="#" onclick="mostrarTab('acerca');return false;">Más información</a>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -332,38 +477,21 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 let lista = JSON.parse(localStorage.getItem('odontoprecio_lista') || '[]');
 lista = lista.map(p => ({...p, cantidad: p.cantidad || 1}));
 let searchTimer = null;
-
-// ── TIENDAS DROPDOWN ──
-function toggleVerTiendas() {
-  const dd = document.getElementById('tiendas-dropdown');
-  const btn = document.getElementById('btn-ver-tiendas');
-  const open = dd.classList.toggle('open');
-  btn.textContent = open ? 'Ocultar ↑' : 'Ver cuáles →';
-  // Cerrar al hacer click afuera
-  if (open) {
-    setTimeout(() => {
-      document.addEventListener('click', function cerrar(e) {
-        if (!dd.contains(e.target) && !btn.contains(e.target)) {
-          dd.classList.remove('open');
-          btn.textContent = 'Ver cuáles →';
-          document.removeEventListener('click', cerrar);
-        }
-      });
-    }, 100);
-  }
-}
+let productoReporte = null;
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
   actualizarBadges();
   cargarStats();
-  // Mezclar chips de tiendas al cargar (orden aleatorio)
+
+  // Mezclar tiendas aleatoriamente
   const dd = document.getElementById('tiendas-dropdown');
   if (dd) {
     const chips = Array.from(dd.querySelectorAll('.tienda-chip'));
     chips.sort(() => Math.random() - 0.5);
     chips.forEach(c => dd.appendChild(c));
   }
+
   const input = document.getElementById('search-input');
   input.addEventListener('input', e => {
     clearTimeout(searchTimer);
@@ -374,7 +502,25 @@ document.addEventListener('DOMContentLoaded', () => {
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') { clearTimeout(searchTimer); const q = input.value.trim(); if (q.length >= 2) buscar(q); }
   });
+
+  // Cerrar dropdown de tiendas al hacer click afuera
+  document.addEventListener('click', e => {
+    const dd = document.getElementById('tiendas-dropdown');
+    const btn = document.getElementById('btn-ver-tiendas');
+    if (dd?.classList.contains('open') && !dd.contains(e.target) && !btn?.contains(e.target)) {
+      dd.classList.remove('open');
+      if (btn) btn.textContent = 'Ver cuáles →';
+    }
+  });
 });
+
+// ── TIENDAS ──
+function toggleVerTiendas() {
+  const dd = document.getElementById('tiendas-dropdown');
+  const btn = document.getElementById('btn-ver-tiendas');
+  const open = dd.classList.toggle('open');
+  btn.textContent = open ? 'Ocultar ↑' : 'Ver cuáles →';
+}
 
 // ── TABS ──
 function mostrarTab(tab) {
@@ -384,14 +530,23 @@ function mostrarTab(tab) {
   document.getElementById('page-' + tab).classList.add('active');
   document.getElementById('btn-lista-hdr').classList.toggle('active', tab === 'lista');
   if (tab === 'lista') renderLista();
+  // GA tracking
+  if (window.gtag) gtag('event', 'page_view', {page_title: tab});
 }
 
 // ── BÚSQUEDA ──
+function buscarDesdeBtn() {
+  const q = document.getElementById('search-input').value.trim();
+  if (q.length >= 2) buscar(q);
+}
+
 async function buscar(q) {
   document.getElementById('loading').style.display = 'block';
   document.getElementById('products-grid').innerHTML = '';
   document.getElementById('results-label').textContent = `Resultados para "${q}"`;
   document.getElementById('results-count').textContent = '';
+  // GA tracking
+  if (window.gtag) gtag('event', 'search', {search_term: q});
   try {
     const r = await fetch(`/api/buscar?q=${encodeURIComponent(q)}`);
     const prods = await r.json();
@@ -425,17 +580,46 @@ function renderProductos(prods) {
       <div class="prod-info">
         <div class="tienda-badge" style="background:${p.tienda_color}"><div class="badge-dot"></div>${esc(p.tienda_nombre)}</div>
         <div class="prod-nombre" title="${esc(p.nombre)}">${esc(p.nombre)}</div>
-        <div class="prod-meta">Actualizado: ${esc(p.actualizado)}</div>
+        <div class="prod-meta">
+          <span>Actualizado: ${esc(p.actualizado)}</span>
+          <span id="hist-${p.id}" class="prod-historial"></span>
+        </div>
       </div>
       <div class="prod-right">
         <div class="prod-precio">${esc(p.precio_fmt)}</div>
         <div class="prod-actions">
           <button class="btn-agregar ${enLista ? 'agregado' : ''}" id="btn-${p.id}" onclick='toggleLista(${JSON.stringify(p).replace(/"/g,"&quot;")})'>${enLista ? '✓ En lista' : '+ Agregar'}</button>
-          ${p.url ? `<a href="${p.url}" target="_blank" rel="noopener" class="btn-ver">Ver en tienda →</a>` : ''}
+          <div class="prod-links">
+            ${p.url ? `<a href="${p.url}" target="_blank" rel="noopener" class="btn-ver">Ver tienda →</a>` : ''}
+            <button class="btn-reportar" onclick='abrirReporte(${JSON.stringify(p).replace(/"/g,"&quot;")})'>⚑ Reportar precio</button>
+          </div>
         </div>
       </div>
     </div>`;
   }).join('');
+
+  // Cargar historial de precios en background
+  prods.forEach(p => cargarHistorial(p));
+}
+
+// ── HISTORIAL ──
+async function cargarHistorial(p) {
+  try {
+    const r = await fetch(`/api/historial/${p.id}`);
+    const hist = await r.json();
+    if (!hist || hist.length < 2) return;
+    const ultimo = hist[hist.length - 1].precio;
+    const anterior = hist[hist.length - 2].precio;
+    const el = document.getElementById(`hist-${p.id}`);
+    if (!el) return;
+    if (ultimo > anterior) {
+      const pct = Math.round(((ultimo - anterior) / anterior) * 100);
+      el.innerHTML = `<span class="hist-sube">▲ ${pct}% vs ayer</span>`;
+    } else if (ultimo < anterior) {
+      const pct = Math.round(((anterior - ultimo) / anterior) * 100);
+      el.innerHTML = `<span class="hist-baja">▼ ${pct}% vs ayer</span>`;
+    }
+  } catch {}
 }
 
 // ── LISTA ──
@@ -452,6 +636,7 @@ function toggleLista(p) {
     toast(`✓ Agregado · ${p.precio_fmt}`);
     document.getElementById('hdr-badge').classList.add('pulse');
     setTimeout(() => document.getElementById('hdr-badge').classList.remove('pulse'), 500);
+    if (window.gtag) gtag('event', 'add_to_cart', {item_name: p.nombre, item_brand: p.tienda_nombre, price: p.precio});
   }
   guardarLista();
   actualizarBadges();
@@ -479,41 +664,30 @@ function renderLista() {
   const footer = document.getElementById('lista-footer');
   const metricas = document.getElementById('lista-metricas');
   const actions = document.getElementById('lista-actions');
-
   if (!lista.length) {
     contenido.innerHTML = `<div class="lista-vacia"><span class="lista-vacia-icon">🛒</span><h3>Tu lista está vacía</h3><p>Buscá productos y agregálos para armar tu pedido</p><button class="btn-ir-buscar" onclick="mostrarTab('buscar')">Ir a buscar →</button></div>`;
-    footer.style.display = 'none';
-    metricas.style.display = 'none';
-    actions.style.display = 'none';
+    footer.style.display = 'none'; metricas.style.display = 'none'; actions.style.display = 'none';
     document.getElementById('lista-sub').textContent = '0 productos · 0 distribuidoras';
     return;
   }
-
   const grupos = {};
   lista.forEach(p => {
-    if (!grupos[p.tienda_slug]) grupos[p.tienda_slug] = {
-      nombre: p.tienda_nombre, color: p.tienda_color,
-      url_base: p.url ? (()=>{try{return new URL(p.url).origin}catch{return '#'}})() : '#',
-      items: []
-    };
+    if (!grupos[p.tienda_slug]) grupos[p.tienda_slug] = {nombre:p.tienda_nombre,color:p.tienda_color,url_base:p.url?(()=>{try{return new URL(p.url).origin}catch{return '#'}})():'#',items:[]};
     grupos[p.tienda_slug].items.push(p);
   });
-
   let total = 0;
   const n = Object.keys(grupos).length;
-
   const cards = Object.values(grupos).map(g => {
-    const sub = g.items.reduce((s,p) => s + (p.precio||0)*(p.cantidad||1), 0);
+    const sub = g.items.reduce((s,p) => s+(p.precio||0)*(p.cantidad||1), 0);
     total += sub;
     const items = g.items.map(p => {
       const imgHtml = p.imagen ? `<img class="item-img" src="${p.imagen}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='🦷'">` : '🦷';
-      const precioUnit = fmt(p.precio);
       const mult = (p.cantidad||1) > 1;
       return `<div class="lista-item">
         <div class="item-img-wrap">${imgHtml}</div>
         <div class="item-info">
           <div class="item-nombre" title="${esc(p.nombre)}">${esc(p.nombre)}</div>
-          <div class="item-precio">${precioUnit}${mult ? ` × ${p.cantidad} = <strong>${fmt((p.precio||0)*(p.cantidad||1))}</strong>` : ''}</div>
+          <div class="item-precio">${fmt(p.precio)}${mult ? ` × ${p.cantidad} = <strong>${fmt((p.precio||0)*(p.cantidad||1))}</strong>` : ''}</div>
         </div>
         <div class="item-controls">
           <div class="qty-wrap">
@@ -525,37 +699,24 @@ function renderLista() {
         </div>
       </div>`;
     }).join('');
-
     return `<div class="tienda-card">
-      <div class="tienda-card-hdr">
-        <div class="tienda-card-nombre"><div class="tienda-card-dot" style="background:${g.color}"></div>${esc(g.nombre)}</div>
-        <div class="tienda-card-subtotal">${fmt(sub)}</div>
-      </div>
+      <div class="tienda-card-hdr"><div class="tienda-card-nombre"><div class="tienda-card-dot" style="background:${g.color}"></div>${esc(g.nombre)}</div><div class="tienda-card-subtotal">${fmt(sub)}</div></div>
       ${items}
-      <div class="tienda-card-ftr">
-        <span class="tienda-card-ftr-info">${g.items.length} producto${g.items.length!==1?'s':''}</span>
-        <a class="ir-tienda" href="${g.url_base}" target="_blank" rel="noopener">Ver tienda →</a>
-      </div>
+      <div class="tienda-card-ftr"><span class="tienda-card-ftr-info">${g.items.length} producto${g.items.length!==1?'s':''}</span><a class="ir-tienda" href="${g.url_base}" target="_blank" rel="noopener">Ver tienda →</a></div>
     </div>`;
   }).join('');
-
   contenido.innerHTML = `<div class="tiendas-grid">${cards}</div>`;
   document.getElementById('metrica-total').textContent = fmt(total);
   document.getElementById('metrica-tiendas').textContent = n;
   document.getElementById('metrica-productos').textContent = lista.length;
   document.getElementById('footer-total').textContent = fmt(total);
   document.getElementById('lista-sub').textContent = `${lista.length} producto${lista.length!==1?'s':''} · ${n} distribuidora${n!==1?'s':''}`;
-  metricas.style.display = 'block';
-  footer.style.display = 'flex';
-  actions.style.display = 'flex';
+  metricas.style.display = 'block'; footer.style.display = 'flex'; actions.style.display = 'flex';
 }
 
 function limpiarLista() {
   if (!confirm('¿Limpiar toda la lista?')) return;
-  lista = [];
-  guardarLista();
-  actualizarBadges();
-  renderLista();
+  lista = []; guardarLista(); actualizarBadges(); renderLista();
   document.querySelectorAll('.btn-agregar.agregado').forEach(b => { b.textContent = '+ Agregar'; b.classList.remove('agregado'); });
   toast('Lista limpiada');
 }
@@ -563,14 +724,13 @@ function limpiarLista() {
 function copiarResumen() {
   if (!lista.length) return;
   const g = {};
-  lista.forEach(p => { if (!g[p.tienda_slug]) g[p.tienda_slug] = {nombre: p.tienda_nombre, items: []}; g[p.tienda_slug].items.push(p); });
+  lista.forEach(p => { if (!g[p.tienda_slug]) g[p.tienda_slug]={nombre:p.tienda_nombre,items:[]}; g[p.tienda_slug].items.push(p); });
   let txt = '🦷 OdontoPrecio — Lista de compras\n' + '─'.repeat(36) + '\n\n';
   let total = 0;
   Object.values(g).forEach(gr => {
-    const sub = gr.items.reduce((s,p)=>s+(p.precio||0)*(p.cantidad||1),0);
-    total += sub;
+    const sub = gr.items.reduce((s,p)=>s+(p.precio||0)*(p.cantidad||1),0); total += sub;
     txt += `📦 ${gr.nombre}\n`;
-    gr.items.forEach(p => { txt += `   • ${p.nombre}${p.cantidad>1?` ×${p.cantidad}`:''} — ${fmt((p.precio||0)*(p.cantidad||1))}\n`; if (p.url) txt += `     ${p.url}\n`; });
+    gr.items.forEach(p => { txt += `   • ${p.nombre}${p.cantidad>1?` ×${p.cantidad}`:''} — ${fmt((p.precio||0)*(p.cantidad||1))}\n`; if(p.url) txt+=`     ${p.url}\n`; });
     txt += `   Subtotal: ${fmt(sub)}\n\n`;
   });
   txt += '─'.repeat(36) + '\nTOTAL: ' + fmt(total);
@@ -580,37 +740,79 @@ function copiarResumen() {
 function compartirWhatsApp() {
   if (!lista.length) return;
   const g = {};
-  lista.forEach(p => { if (!g[p.tienda_slug]) g[p.tienda_slug] = {nombre: p.tienda_nombre, items: []}; g[p.tienda_slug].items.push(p); });
+  lista.forEach(p => { if (!g[p.tienda_slug]) g[p.tienda_slug]={nombre:p.tienda_nombre,items:[]}; g[p.tienda_slug].items.push(p); });
   let txt = '🦷 *Lista de insumos — OdontoPrecio*\n\n';
   let total = 0;
   Object.values(g).forEach(gr => {
-    const sub = gr.items.reduce((s,p)=>s+(p.precio||0)*(p.cantidad||1),0);
-    total += sub;
+    const sub = gr.items.reduce((s,p)=>s+(p.precio||0)*(p.cantidad||1),0); total += sub;
     txt += `*${gr.nombre}*\n`;
     gr.items.forEach(p => { txt += `• ${p.nombre}${p.cantidad>1?` ×${p.cantidad}`:''} — ${fmt((p.precio||0)*(p.cantidad||1))}\n`; });
     txt += `_Subtotal: ${fmt(sub)}_\n\n`;
   });
-  txt += `*Total: ${fmt(total)}*`;
+  txt += `*Total: ${fmt(total)}*\n_Precios de OdontoPrecio.onrender.com_`;
   window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
 }
+
+// ── REPORTE ──
+function abrirReporte(p) {
+  productoReporte = p;
+  document.getElementById('modal-prod-nombre').textContent = `${p.nombre} · ${p.tienda_nombre} · ${p.precio_fmt}`;
+  document.getElementById('modal-comentario').value = '';
+  document.getElementById('modal-reporte').classList.add('open');
+}
+
+function cerrarReporte() {
+  document.getElementById('modal-reporte').classList.remove('open');
+  productoReporte = null;
+}
+
+async function enviarReporte() {
+  if (!productoReporte) return;
+  const motivo = document.getElementById('modal-motivo').value;
+  const comentario = `${motivo}: ${document.getElementById('modal-comentario').value}`;
+  try {
+    await fetch('/api/reporte', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        id: productoReporte.id,
+        nombre: productoReporte.nombre,
+        tienda: productoReporte.tienda_nombre,
+        precio: productoReporte.precio,
+        comentario
+      })
+    });
+    cerrarReporte();
+    toast('✓ Reporte enviado, gracias!');
+    if (window.gtag) gtag('event', 'report_price', {item_name: productoReporte.nombre});
+  } catch {
+    toast('Error al enviar el reporte');
+  }
+}
+
+// Cerrar modal al hacer clic afuera
+document.getElementById('modal-reporte').addEventListener('click', e => {
+  if (e.target === e.currentTarget) cerrarReporte();
+});
 
 // ── UTILS ──
 function guardarLista() { localStorage.setItem('odontoprecio_lista', JSON.stringify(lista)); }
 function actualizarBadges() {
   const n = lista.length;
-  ['hdr-badge','tab-badge'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.textContent = n;
-    if (id === 'hdr-badge') el.className = n ? 'hdr-badge' : 'hdr-badge empty';
-    else el.className = n ? 'tab-badge' : 'tab-badge empty';
-  });
+  const hb = document.getElementById('hdr-badge');
+  const tb = document.getElementById('tab-badge');
+  if (hb) { hb.textContent = n; hb.className = n ? 'hdr-badge' : 'hdr-badge empty'; }
+  if (tb) { tb.textContent = n; tb.className = n ? 'tab-badge' : 'tab-badge empty'; }
 }
 function fmt(n) { if (!n) return '$0'; return '$' + Math.round(n).toLocaleString('es-AR'); }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
+function toast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
 async function cargarStats() {
-  try { const r = await fetch('/api/stats'); const d = await r.json(); document.getElementById('stats-text').textContent = `${d.total.toLocaleString('es-AR')} productos indexados`; } catch {}
+  try {
+    const r = await fetch('/api/stats');
+    const d = await r.json();
+    document.getElementById('stats-text').textContent = `${d.total.toLocaleString('es-AR')} productos indexados`;
+  } catch {}
 }
 </script>
 </body>
