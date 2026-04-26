@@ -36,7 +36,8 @@ TIENDAS = [
     {"slug":"dentalstorearg","nombre":"Dental Store Argentina","url_base":"https://dentalstoreargentina.com","tipo":"woocommerce","sitemap":"https://dentalstoreargentina.com/wp-sitemap-posts-product-1.xml","filtro_sitemap":"/producto/","color":"#0d9488"},
     {"slug":"axdental","nombre":"Axdental","url_base":"https://axdental.com.ar","tipo":"woocommerce","sitemap":"https://axdental.com.ar/product-sitemap.xml","filtro_sitemap":"/productos/","color":"#be185d"},
     {"slug":"bairesdental","nombre":"Baires Dental","url_base":"https://bairesdental.com.ar","tipo":"woocommerce","sitemap":"https://bairesdental.com.ar/wp-sitemap-posts-product-1.xml","filtro_sitemap":"/producto/","color":"#475569"},
-    {"slug":"occidental","nombre":"Occidental Dental","url_base":"https://www.occidental.com.ar","tipo":"woocommerce","sitemap":"https://www.occidental.com.ar/wp-sitemap-posts-product-1.xml","filtro_sitemap":"/product/","color":"#b45309","sitemap_extra":"https://www.occidental.com.ar/wp-sitemap-posts-product-2.xml"},
+    # Occidental Dental: requiere login para ver precios — no scrapeable
+    # {"slug":"occidental","nombre":"Occidental Dental",...},
     {"slug":"odontomed","nombre":"Odontomed Insumos","url_base":"https://odontomedinsumos.com","tipo":"woocommerce","sitemap":"https://odontomedinsumos.com/product-sitemap.xml","filtro_sitemap":"/producto/","color":"#b45309"},
     # ── PRESTASHOP ──
     {
@@ -243,6 +244,25 @@ def scrape_producto_woocommerce(url, tienda):
         if r.status_code != 200: return None
         soup = BeautifulSoup(r.text, "html.parser")
         if soup.select_one(".out-of-stock, p.stock.out-of-stock"): return None
+        # Primero intentar variaciones de producto (WooCommerce variable product)
+        form_var = soup.select_one("form.variations_form[data-product_variations]")
+        if form_var:
+            try:
+                variations = json.loads(form_var.get("data-product_variations", "[]"))
+                if variations:
+                    # Tomar el precio minimo real (excluir precios 0)
+                    precios_vars = [v.get("display_price", 0) for v in variations if v.get("display_price", 0) > 50]
+                    if precios_vars:
+                        precio = min(precios_vars)
+                        nombre_el = soup.select_one("h1.product_title, h1.entry-title, h1")
+                        nombre = nombre_el.get_text(strip=True) if nombre_el else ""
+                        img_el = soup.select_one('meta[property="og:image"]')
+                        imagen = img_el["content"] if img_el else ""
+                        if nombre:
+                            return hacer_producto(tienda, nombre, precio, url, imagen)
+            except Exception:
+                pass
+
         for script in soup.find_all("script", type="application/ld+json"):
             try:
                 data = json.loads(script.string)
@@ -251,16 +271,31 @@ def scrape_producto_woocommerce(url, tienda):
                 if data and data.get("@type") == "Product":
                     if "OutOfStock" in data.get("offers", {}).get("availability", ""): return None
                     nombre = data.get("name", "")
-                    precio = limpiar_precio(str(data.get("offers", {}).get("price", 0)))
+                    # Manejar offerS multiple (AggregateOffer)
+                    offers = data.get("offers", {})
+                    if offers.get("@type") == "AggregateOffer":
+                        precio = limpiar_precio(str(offers.get("lowPrice", offers.get("price", 0))))
+                    else:
+                        precio = limpiar_precio(str(offers.get("price", 0)))
                     imagen = data.get("image", "")
                     if isinstance(imagen, list): imagen = imagen[0] if imagen else ""
-                    if nombre and precio:
+                    if nombre and precio and precio > 50:
+                        # Verificar si hay precio de oferta en HTML que sea menor (precio real)
+                        precio_oferta_el = soup.select_one(".price ins .woocommerce-Price-amount, .price ins .amount")
+                        if precio_oferta_el:
+                            precio_oferta = limpiar_precio(precio_oferta_el.get_text(strip=True))
+                            if precio_oferta and precio_oferta < precio:
+                                precio = precio_oferta
                         return hacer_producto(tienda, nombre, precio, url, imagen)
             except Exception:
                 continue
         nombre_el = soup.select_one("h1.product_title, h1.entry-title, h1")
         nombre = nombre_el.get_text(strip=True) if nombre_el else ""
-        precio_el = soup.select_one(".price ins .woocommerce-Price-amount, .price .woocommerce-Price-amount, .price .amount, [itemprop='price']")
+        # Priorizar precio de oferta (ins) sobre precio normal
+        # Esto evita tomar el precio tachado cuando hay descuento
+        precio_oferta = soup.select_one(".price ins .woocommerce-Price-amount, .price ins .amount")
+        precio_normal = soup.select_one(".price .woocommerce-Price-amount, .price .amount, [itemprop='price']")
+        precio_el = precio_oferta or precio_normal
         precio_txt = (precio_el.get("content") or precio_el.get_text(strip=True)) if precio_el else ""
         precio = limpiar_precio(precio_txt)
         img_el = soup.select_one('meta[property="og:image"]')
@@ -437,41 +472,45 @@ def _scrape_producto_carrizo(url, tienda):
 
 # ─── MOTOR DENTALAB ───────────────────────────────────────────────────────────
 def scrape_dentalab(tienda):
-    """Joomla/VirtueMart. Productos listados en paginas de categoria con nombre y precio."""
+    """Joomla/VirtueMart. Listings por categoria, productos con URLs /productos/cat/nombre.html"""
     productos, urls_vistas = [], set()
     for cat_path in tienda.get("categorias_urls", []):
         cat_url = tienda["url_base"] + cat_path
-        page = 1
-        print(f"  Cat: {cat_path.split('/')[-1]}")
+        # Extraer nombre de categoria para buscar links
+        cat_nombre = cat_path.strip("/").split("/")[-1].replace(".html", "")
+        page = 0
+        print(f"  Cat: {cat_nombre}")
         while True:
-            url = f"{cat_url}?start={((page-1)*20)}" if page > 1 else cat_url
+            url = f"{cat_url}?start={page*20}" if page > 0 else cat_url
             try:
                 r = fetch(url, timeout=15)
                 if r.status_code != 200: break
                 soup = BeautifulSoup(r.text, "html.parser")
-                # VirtueMart usa .product o .vm-product-media-container
-                items = soup.select(".product, .vm-product-media-container, [class*='productlisting'], [class*='product-fields']")
-                if not items and page > 1: break
+
+                # Links a productos individuales (tienen /productos/categoria/nombre.html)
+                prod_links = soup.select(f"a[href*='/productos/{cat_nombre}/']")
+                prod_links = [a for a in prod_links 
+                             if a.get("href","").endswith(".html") 
+                             and not any(x in a.get("href","") for x in ["dirDesc","por,","ordenar"])]
+
+                if not prod_links and page > 0: break
+                if not prod_links: break
+
                 encontro_nuevos = False
-                for item in items:
-                    # Buscar link al producto
-                    link = item.select_one("a[href*='/productos/']")
-                    if not link:
-                        link = item.find_parent("a") or item.select_one("a[href]")
-                    if not link: continue
-                    href = link.get("href", "")
+                for a in prod_links:
+                    href = a.get("href", "")
                     if not href.startswith("http"): href = tienda["url_base"] + href
                     if href in urls_vistas: continue
                     urls_vistas.add(href)
-                    encontro_nuevos = True
                     prod = _scrape_producto_dentalab(href, tienda)
-                    if prod: productos.append(prod)
+                    if prod:
+                        productos.append(prod)
+                        encontro_nuevos = True
                     time.sleep(DELAY)
-                # Tambien buscar productos directamente en listing (nombre + precio en la misma pagina)
-                _extraer_productos_listing_dentalab(soup, cat_url, tienda, productos, urls_vistas)
+
                 if not encontro_nuevos: break
-                # Paginacion
-                next_btn = soup.select_one("a[href*='start='], .pagination a[rel='next'], a.next")
+                # Verificar paginacion
+                next_btn = soup.select_one("a[href*='start=']")
                 if not next_btn: break
                 page += 1
             except Exception as e:
@@ -479,41 +518,34 @@ def scrape_dentalab(tienda):
                 break
     return productos
 
-def _extraer_productos_listing_dentalab(soup, base_url, tienda, productos, urls_vistas):
-    """Extrae productos directamente del listing sin visitar cada URL individual."""
-    # VirtueMart muestra nombre+precio en el listing
-    rows = soup.select("table tr, .product-row, [class*='product-name']")
-    for row in rows:
-        nombre_el = row.select_one(".product-name a, .vm-title a, h2 a, h3 a")
-        if not nombre_el: continue
-        href = nombre_el.get("href", "")
-        if not href.startswith("http"): href = tienda["url_base"] + href
-        if href in urls_vistas: continue
-        nombre = nombre_el.get_text(strip=True)
-        if not nombre: continue
-        precio_el = row.select_one(".PriceproductPrice, .product-price, [class*='price']")
-        precio_txt = precio_el.get_text(strip=True) if precio_el else ""
-        precio = limpiar_precio(precio_txt)
-        img_el = row.select_one("img")
-        imagen = img_el.get("src", "") if img_el else ""
-        if imagen and not imagen.startswith("http"): imagen = tienda["url_base"] + imagen
-        if nombre and precio:
-            urls_vistas.add(href)
-            productos.append(hacer_producto(tienda, nombre, precio, href, imagen))
-
 def _scrape_producto_dentalab(url, tienda):
     try:
         r = fetch(url, timeout=15)
         if r.status_code != 200: return None
         soup = BeautifulSoup(r.text, "html.parser")
+        
+        # Nombre: h1 o og:title
         nombre_el = soup.select_one("h1, .product-title, [itemprop='name']")
         nombre = nombre_el.get_text(strip=True) if nombre_el else ""
-        precio_el = soup.select_one(".PriceproductPrice, [itemprop='price'], .product-price, [class*='price']")
-        precio_txt = (precio_el.get("content") or precio_el.get_text(strip=True)) if precio_el else ""
+        if not nombre:
+            og = soup.select_one('meta[property="og:title"]')
+            nombre = og["content"] if og else ""
+        
+        # Precio: VirtueMart usa .PriceproductPrice o itemprop=price
+        precio_el = soup.select_one("[itemprop='price'], .PriceproductPrice, .product-price, .productPrice")
+        precio_txt = ""
+        if precio_el:
+            precio_txt = precio_el.get("content") or precio_el.get_text(strip=True)
+        if not precio_txt:
+            # Buscar en el texto del body
+            match = re.search(r'\$\s*[\d.,]+', soup.get_text())
+            precio_txt = match.group(0) if match else ""
         precio = limpiar_precio(precio_txt)
+        
         img_el = soup.select_one('meta[property="og:image"]')
         imagen = img_el["content"] if img_el else ""
-        if nombre and precio:
+        
+        if nombre and precio and precio > 50:
             return hacer_producto(tienda, nombre, precio, url, imagen)
         return None
     except Exception:
@@ -564,11 +596,12 @@ def scrape_odontostore(tienda):
 
 # ─── MOTOR CEDENT ─────────────────────────────────────────────────────────────
 def scrape_cedent(tienda):
-    """Custom. Categoria via /shop/category/nombre-ID, productos en listing."""
+    """Odoo. Listing de categoria con productos y precios directamente en la pagina."""
     productos, urls_vistas = [], set()
     for cat_path in tienda.get("categorias_urls", []):
         cat_url = tienda["url_base"] + cat_path
         page = 1
+        cat_id = cat_path.split("-")[-1]  # Extraer ID de la URL
         print(f"  Cat: {cat_path.split('/')[-1][:30]}")
         while True:
             url = f"{cat_url}?page={page}" if page > 1 else cat_url
@@ -576,28 +609,59 @@ def scrape_cedent(tienda):
                 r = fetch(url, timeout=15)
                 if r.status_code != 200: break
                 soup = BeautifulSoup(r.text, "html.parser")
-                items = soup.select("[class*='product'], [class*='item'], .card, article")
-                if not items and page > 1: break
+
+                # Odoo: productos en cards con link al producto y precio en .oe_currency_value
+                # Buscar todos los links a productos (no categorias, no cart)
+                EXCLUIR = ["/category/", "/cart", "/wishlist", "change_pricelist", "/product/"]
+                prod_anchors = soup.select("a[href*='/shop/']")
+                
                 encontro_nuevos = False
-                for item in items:
-                    nombre_el = item.select_one("[class*='name'], [class*='title'], h2, h3, h4, strong")
-                    precio_el = item.select_one("[class*='price'], [class*='precio']")
-                    link_el = item.select_one("a[href*='/shop/']")
-                    if not nombre_el or not precio_el: continue
-                    nombre = nombre_el.get_text(strip=True)
-                    precio = limpiar_precio(precio_el.get_text(strip=True))
-                    href = link_el.get("href", "") if link_el else cat_url
+                prods_pagina = []
+                for a in prod_anchors:
+                    href = a.get("href", "")
+                    if any(x in href for x in EXCLUIR): continue
                     if not href.startswith("http"): href = tienda["url_base"] + href
-                    if href in urls_vistas: continue
-                    urls_vistas.add(href)
-                    encontro_nuevos = True
-                    img_el = item.select_one("img")
-                    imagen = img_el.get("src", "") if img_el else ""
-                    if imagen and not imagen.startswith("http"): imagen = tienda["url_base"] + imagen
-                    if nombre and precio:
-                        productos.append(hacer_producto(tienda, nombre, precio, href, imagen))
-                if not encontro_nuevos: break
-                if not soup.select_one("a[rel='next'], .next, a.page-link[aria-label='Next']"): break
+                    # Limpiar parametros ?category=
+                    href_limpia = href.split("?")[0]
+                    if href_limpia in urls_vistas: continue
+                    prods_pagina.append((href_limpia, a))
+                    urls_vistas.add(href_limpia)
+
+                if not prods_pagina and page > 1: break
+
+                # Para cada producto del listing, obtener nombre y precio desde la pagina individual
+                for url_prod, _ in prods_pagina:
+                    try:
+                        rp = fetch(url_prod, timeout=15)
+                        if rp.status_code != 200: continue
+                        sp = BeautifulSoup(rp.text, "html.parser")
+                        
+                        nombre_el = sp.select_one("h1[itemprop='name'], h1.product-name, h1")
+                        nombre = nombre_el.get_text(strip=True) if nombre_el else ""
+                        
+                        # Precio con itemprop=price (content tiene el valor numerico)
+                        precio_el = sp.select_one("[itemprop='price']")
+                        if precio_el:
+                            precio = limpiar_precio(precio_el.get("content") or precio_el.get_text(strip=True))
+                        else:
+                            # Fallback: primer .oe_currency_value
+                            cv = sp.select_one(".oe_currency_value")
+                            precio = limpiar_precio(cv.get_text(strip=True)) if cv else 0
+
+                        img_el = sp.select_one('meta[property="og:image"]')
+                        imagen = img_el["content"] if img_el else ""
+
+                        if nombre and precio and precio > 50:
+                            productos.append(hacer_producto(tienda, nombre, precio, url_prod, imagen))
+                            encontro_nuevos = True
+                        time.sleep(DELAY)
+                    except Exception:
+                        continue
+
+                if not encontro_nuevos and page > 1: break
+                # Paginacion Odoo
+                next_btn = soup.select_one("a.page-link[aria-label='Next'], .o_website_scrollup ~ * a[href*='page='], a[href*='page=']")
+                if not next_btn: break
                 page += 1
             except Exception as e:
                 print(f"  ! {e}")

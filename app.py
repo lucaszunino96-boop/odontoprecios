@@ -92,7 +92,14 @@ def expandir_query(terminos_set):
 # ─── Motor de búsqueda ─────────────────────────────────────────
 
 def dividir_token(token):
-    """z350xt -> ['z350', 'xt'] | p60 -> ['p60']"""
+    """
+    Divide tokens compuestos en partes para búsqueda flexible.
+    z350xt -> ['z350', 'xt']
+    p60    -> ['p60']
+    3m     -> ['3m']   (empieza con número = unidad completa)
+    """
+    if token and token[0].isdigit():
+        return [token]
     partes = re.findall(r"[a-z]+|[0-9]+", token)
     resultado = []
     i = 0
@@ -105,34 +112,52 @@ def dividir_token(token):
             i += 1
     return resultado
 
+def es_subtoken_valido(token):
+    if len(token) <= 1:
+        return False
+    if token in {"a", "b", "c", "m", "x", "g", "u", "n", "v", "s", "de", "el", "la", "lo", "en", "con", "por", "para"}:
+        return False
+    return True
+
 def match_token(nombre, nombre_junto, token):
-    """Retorna score de match de un token en el nombre. -1 = no matchea."""
+    """
+    Retorna score de match:
+      200 = match exacto al inicio del nombre (más relevante)
+      100 = match exacto como palabra
+       50 = match en nombre sin espacios
+        1 = substring parcial (menos relevante)
+       -1 = no matchea
+    """
     patron = r"(?<![a-z0-9])" + re.escape(token) + r"(?![a-z0-9])"
     if re.search(patron, nombre):
-        return 10
+        # Bonus si aparece al inicio
+        if nombre.startswith(token) or re.match(r"^" + re.escape(token) + r"(?![a-z0-9])", nombre):
+            return 200
+        return 100
     if re.search(patron, nombre_junto) or token in nombre_junto:
-        return 10
+        return 50
     if token in nombre:
         return 1
     return -1
 
 def calcular_score(nombre_norm, terminos_variantes):
     """
-    Retorna score >= 0 si el nombre matchea todos los términos, -1 si no.
-    terminos_variantes: lista donde cada elemento es una lista de alternativas.
-    Ej: [["z350xt", ["z350","xt"]], ["jeringa"]]
-    El primer elemento es el token completo, los siguientes son sub-tokens.
+    Calcula relevancia. Retorna -1 si no matchean TODOS los términos.
+    Mayor score = más relevante.
+    Bonus cuando los términos aparecen juntos y en orden.
     """
-    nombre_junto = re.sub(r" ", "", nombre_norm)
+    nombre_junto = nombre_norm.replace(" ", "")
     score = 0
+
     for variantes in terminos_variantes:
         mejor = -1
         for variante in variantes:
             if isinstance(variante, list):
-                # Son sub-tokens que TODOS deben matchear (ej: z350 Y xt)
-                sub_score = 0
-                ok = True
-                for sub in variante:
+                subtokens = [s for s in variante if es_subtoken_valido(s)]
+                if not subtokens:
+                    continue
+                sub_score, ok = 0, True
+                for sub in subtokens:
                     s = match_token(nombre_norm, nombre_junto, sub)
                     if s < 0:
                         ok = False
@@ -141,38 +166,53 @@ def calcular_score(nombre_norm, terminos_variantes):
                 if ok:
                     mejor = max(mejor, sub_score)
             else:
-                # Token simple
                 s = match_token(nombre_norm, nombre_junto, variante)
                 if s >= 0:
                     mejor = max(mejor, s)
         if mejor < 0:
             return -1
         score += mejor
+
+    # BONUS 1: todos los términos juntos en orden en el nombre
+    # Ej: "3m composite p60" matchea mejor si aparecen en ese orden
+    tokens_base = []
+    for v in terminos_variantes:
+        t = v[0]
+        if isinstance(t, list):
+            tokens_base.append(t[0])
+        else:
+            tokens_base.append(t)
+
+    if len(tokens_base) > 1:
+        patron_orden = r".*".join(re.escape(t) for t in tokens_base)
+        if re.search(patron_orden, nombre_norm) or re.search(patron_orden, nombre_junto):
+            score += 100  # Aparecen en el orden correcto
+
+    # BONUS 2: el nombre empieza con el primer término
+    if tokens_base and (nombre_norm.startswith(tokens_base[0]) or
+        re.match(r"^" + re.escape(tokens_base[0]) + r"(?![a-z0-9])", nombre_norm)):
+        score += 50
+
+    # BONUS 3: coincidencia exacta de frase completa
+    frase = " ".join(tokens_base)
+    if frase in nombre_norm:
+        score += 200
+
     return score
 
 def preparar_query(q):
-    """
-    Convierte query string en lista de terminos_variantes lista para buscar.
-    Retorna (terminos_base_set, terminos_variantes, terminos_sinonimos)
-    """
     q_norm = re.sub(r"[-./ ]", " ", q.lower()).strip()
     q_norm = re.sub(r" +", " ", q_norm)
     terminos_base = q_norm.split()
-
-    # Generar variantes por token
     terminos_variantes = []
     for t in terminos_base:
         partes = dividir_token(t)
         if len(partes) > 1 and partes != [t]:
-            # Ej: z350xt -> probar "z350xt" como token O ["z350","xt"] como sub-tokens
             terminos_variantes.append([t, partes])
         else:
             terminos_variantes.append([t])
-
-    # Expandir con sinónimos
     base_set = set(terminos_base)
     sinonimos_set = expandir_query(base_set) - base_set
-
     return terminos_variantes, sinonimos_set
 
 
@@ -220,8 +260,8 @@ def buscar():
 
     # Ordenar cada grupo por precio
     resultados_directos.sort(key=lambda x: (
-        -x[0],  # mayor score primero
-        x[1]["precio"] if x[1]["precio"] > 0 else 999_999_999
+        -x[0],                                                    # mayor score primero
+        x[1]["precio"] if x[1]["precio"] > 0 else 999_999_999    # menor precio segundo
     ))
     resultados_sinonimos.sort(key=lambda x: (
         x[1]["precio"] if x[1]["precio"] > 0 else 999_999_999
