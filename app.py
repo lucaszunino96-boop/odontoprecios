@@ -39,6 +39,12 @@ def _actualizar_si_es_necesario():
         def _run():
             nuevos = correr_scraper()
             _cache["productos"] = nuevos
+            # Guardar historial de precios
+            try:
+                hist = guardar_historial(nuevos)
+                _cache["historial"] = hist
+            except Exception as e:
+                print(f"Error guardando historial: {e}")
             print(f"Auto-actualizacion completada: {len(nuevos)} productos.")
         threading.Thread(target=_run, daemon=True).start()
     except Exception as e:
@@ -216,6 +222,75 @@ def preparar_query(q):
     return terminos_variantes, sinonimos_set
 
 
+# ─── Historial de precios ──────────────────────────────────────
+HIST_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "historial.json")
+
+def cargar_historial():
+    if os.path.exists(HIST_PATH):
+        try:
+            with open(HIST_PATH, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def guardar_historial(productos_nuevos):
+    """Compara precios nuevos con el historial y guarda cambios."""
+    from datetime import datetime
+    hist = cargar_historial()
+    hoy = datetime.now().strftime("%Y-%m-%d")
+    cambiaron = 0
+    for p in productos_nuevos:
+        pid = p["id"]
+        precio = p["precio"]
+        if pid not in hist:
+            hist[pid] = []
+        # Solo guardar si el precio cambió respecto al último registro
+        if not hist[pid] or hist[pid][-1]["precio"] != precio:
+            hist[pid].append({"fecha": hoy, "precio": precio})
+            # Mantener solo últimos 90 días
+            if len(hist[pid]) > 90:
+                hist[pid] = hist[pid][-90:]
+            cambiaron += 1
+    with open(HIST_PATH, "w", encoding="utf-8") as f:
+        json.dump(hist, f, ensure_ascii=False)
+    print(f"Historial actualizado: {cambiaron} productos con cambios de precio.")
+    return hist
+
+# Inicializar historial en cache
+_cache["historial"] = None
+
+def get_historial():
+    if _cache["historial"] is None:
+        _cache["historial"] = cargar_historial()
+    return _cache["historial"]
+
+# ─── Reportes de precios ───────────────────────────────────────
+REPORTES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reportes.json")
+
+def guardar_reporte(producto_id, nombre, tienda, precio_actual, comentario, ip):
+    from datetime import datetime
+    reportes = []
+    if os.path.exists(REPORTES_PATH):
+        try:
+            with open(REPORTES_PATH, encoding="utf-8") as f:
+                reportes = json.load(f)
+        except Exception:
+            reportes = []
+    reportes.append({
+        "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "producto_id": producto_id,
+        "nombre": nombre,
+        "tienda": tienda,
+        "precio_actual": precio_actual,
+        "comentario": comentario[:200],
+        "ip": ip[:20] if ip else ""
+    })
+    # Mantener últimos 500 reportes
+    reportes = reportes[-500:]
+    with open(REPORTES_PATH, "w", encoding="utf-8") as f:
+        json.dump(reportes, f, ensure_ascii=False, indent=2)
+
 # ─── Rutas ─────────────────────────────────────────────────────
 
 @app.route("/")
@@ -281,6 +356,62 @@ def actualizar():
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({"ok": True, "mensaje": "Actualizando en segundo plano..."})
 
+
+@app.route("/api/historial/<producto_id>")
+def historial_producto(producto_id):
+    """Devuelve el historial de precios de un producto."""
+    hist = get_historial()
+    datos = hist.get(producto_id, [])
+    return jsonify(datos)
+
+@app.route("/api/reporte", methods=["POST"])
+def reporte():
+    """Guarda un reporte de precio incorrecto."""
+    data = request.get_json(silent=True) or {}
+    producto_id = str(data.get("id", ""))[:50]
+    nombre = str(data.get("nombre", ""))[:200]
+    tienda = str(data.get("tienda", ""))[:100]
+    precio_actual = float(data.get("precio", 0))
+    comentario = str(data.get("comentario", ""))[:200]
+    ip = request.remote_addr or ""
+    if not producto_id or not nombre:
+        return jsonify({"error": "Datos incompletos"}), 400
+    guardar_reporte(producto_id, nombre, tienda, precio_actual, comentario, ip)
+    return jsonify({"ok": True})
+
+@app.route("/admin/reportes")
+def ver_reportes():
+    """Descarga los reportes como Excel. Protegido con clave."""
+    clave = request.args.get("clave", "")
+    CLAVE_ADMIN = os.environ.get("ADMIN_CLAVE", "odonto2024")
+    if clave != CLAVE_ADMIN:
+        return "Acceso denegado", 403
+    if not os.path.exists(REPORTES_PATH):
+        return "No hay reportes todavia.", 200
+    try:
+        import csv, io
+        reportes = json.load(open(REPORTES_PATH, encoding="utf-8"))
+        # Generar CSV (compatible con Excel)
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Fecha", "Tienda", "Producto", "Precio actual", "Comentario"])
+        for r in reversed(reportes):  # más recientes primero
+            writer.writerow([
+                r.get("fecha", ""),
+                r.get("tienda", ""),
+                r.get("nombre", ""),
+                r.get("precio_actual", ""),
+                r.get("comentario", ""),
+            ])
+        csv_data = "﻿" + output.getvalue()  # BOM para que Excel lo abra bien en español
+        from flask import Response
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=reportes_odontoprecio.csv"}
+        )
+    except Exception as e:
+        return f"Error: {e}", 500
 
 @app.route("/api/stats")
 def stats():
