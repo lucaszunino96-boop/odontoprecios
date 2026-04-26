@@ -38,15 +38,29 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 
 /* TABS */
 .tabs { background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:58px; z-index:200; }
-.tabs-inner { max-width:1200px; margin:0 auto; padding:0 24px; display:flex; align-items:center; }
+.tabs-inner { max-width:1200px; margin:0 auto; padding:0 24px; display:flex; align-items:center; position:relative; }
 .tab { padding:13px 16px; font-size:13px; font-weight:500; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; display:flex; align-items:center; gap:7px; transition:color .15s; white-space:nowrap; user-select:none; }
 .tab:hover { color:var(--text); }
 .tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
 .tab-badge { background:var(--accent); color:#fff; border-radius:20px; padding:1px 7px; font-size:11px; font-weight:700; }
 .tab-badge.empty { background:var(--border2); color:var(--text2); }
-.tiendas-bar { flex:1; display:flex; gap:8px; align-items:center; padding:8px 0 8px 16px; overflow-x:auto; scrollbar-width:none; }
-.tiendas-bar::-webkit-scrollbar { display:none; }
-.tienda-chip { display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:500; color:var(--text2); white-space:nowrap; }
+.tiendas-bar { flex:1; display:flex; gap:8px; align-items:center; padding:8px 0 8px 16px; }
+.tiendas-count-label { font-size:12px; color:var(--text2); }
+.tiendas-count-num { font-size:13px; font-weight:700; color:var(--accent); }
+.tiendas-ver-btn { background:none; border:1px solid var(--border2); border-radius:20px; padding:3px 10px; font-size:11.5px; font-weight:500; color:var(--text2); cursor:pointer; transition:all .15s; white-space:nowrap; }
+.tiendas-ver-btn:hover { border-color:var(--accent); color:var(--accent); }
+.tiendas-dropdown {
+  display:none;
+  position:absolute;
+  top:calc(58px + 44px);
+  left:0; right:0;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  z-index:150;
+  padding:12px 24px;
+}
+.tiendas-dropdown.open { display:flex; flex-wrap:wrap; gap:10px 16px; }
+.tienda-chip { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:500; color:var(--text2); white-space:nowrap; }
 .chip-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
 
 /* PÁGINAS */
@@ -217,7 +231,12 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
       <span class="tab-badge empty" id="tab-badge">0</span>
     </div>
     <div class="tiendas-bar">
-      <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-right:2px;">Tiendas:</span>
+      <span class="tiendas-count-label">Comparando precios en</span>
+      <span class="tiendas-count-num">{{ tiendas|length }}</span>
+      <span class="tiendas-count-label">distribuidoras</span>
+      <button class="tiendas-ver-btn" onclick="toggleVerTiendas()" id="btn-ver-tiendas">Ver cuáles →</button>
+    </div>
+    <div class="tiendas-dropdown" id="tiendas-dropdown">
       {% for t in tiendas %}
       <div class="tienda-chip">
         <div class="chip-dot" style="background:{{ t.color }}"></div>
@@ -314,10 +333,37 @@ let lista = JSON.parse(localStorage.getItem('odontoprecio_lista') || '[]');
 lista = lista.map(p => ({...p, cantidad: p.cantidad || 1}));
 let searchTimer = null;
 
+// ── TIENDAS DROPDOWN ──
+function toggleVerTiendas() {
+  const dd = document.getElementById('tiendas-dropdown');
+  const btn = document.getElementById('btn-ver-tiendas');
+  const open = dd.classList.toggle('open');
+  btn.textContent = open ? 'Ocultar ↑' : 'Ver cuáles →';
+  // Cerrar al hacer click afuera
+  if (open) {
+    setTimeout(() => {
+      document.addEventListener('click', function cerrar(e) {
+        if (!dd.contains(e.target) && !btn.contains(e.target)) {
+          dd.classList.remove('open');
+          btn.textContent = 'Ver cuáles →';
+          document.removeEventListener('click', cerrar);
+        }
+      });
+    }, 100);
+  }
+}
+
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
   actualizarBadges();
   cargarStats();
+  // Mezclar chips de tiendas al cargar (orden aleatorio)
+  const dd = document.getElementById('tiendas-dropdown');
+  if (dd) {
+    const chips = Array.from(dd.querySelectorAll('.tienda-chip'));
+    chips.sort(() => Math.random() - 0.5);
+    chips.forEach(c => dd.appendChild(c));
+  }
   const input = document.getElementById('search-input');
   input.addEventListener('input', e => {
     clearTimeout(searchTimer);
