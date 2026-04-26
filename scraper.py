@@ -59,24 +59,33 @@ TIENDAS = [
         "tipo":"dentalab","sitemap":None,"color":"#0369a1",
         "categorias_urls":[
             "/productos/anestesias.html",
-            "/productos/composites-y-compomeros.html",
-            "/productos/adhesivos.html",
+            "/productos/composites-y-adhesivos.html",
             "/productos/cementos.html",
             "/productos/endodoncia.html",
             "/productos/ortodoncia.html",
-            "/productos/cirugia.html",
-            "/productos/periodoncia.html",
-            "/productos/blanqueamiento.html",
-            "/productos/bioseguridad.html",
-            "/productos/instrumental.html",
+            "/productos/blanqueamiento-dental.html",
+            "/productos/descartables-y-bioseguridad.html",
+            "/productos/instrumentales.html",
             "/productos/radiologia.html",
-            "/productos/laboratorio.html",
+            "/productos/lab-laboratorio.html",
             "/productos/protesis.html",
             "/productos/acrilicos-y-rebasado.html",
             "/productos/yesos-y-revestimientos.html",
             "/productos/materiales-de-impresion.html",
-            "/productos/equipamiento.html",
-            "/productos/descartables.html",
+            "/productos/equipos-odontologicos-y-perifericos.html",
+            "/productos/fresas-y-piedras.html",
+            "/productos/materiales-de-obturacion.html",
+            "/productos/higiene.html",
+            "/productos/operatoria.html",
+            "/productos/pulidores-y-abrasivos.html",
+            "/productos/medicamentos-y-prevencion.html",
+            "/productos/attaches-e-implantes.html",
+            "/productos/disilicatos.html",
+            "/productos/ceras-y-lacas.html",
+            "/productos/metales.html",
+            "/productos/porcelanas.html",
+            "/productos/maquinas.html",
+            "/productos/var-varios.html",
         ],
     },
     # ── ODONTOSTORE (Custom por categorias) ──
@@ -114,23 +123,50 @@ TIENDAS = [
         "slug":"cedent","nombre":"Cedent","url_base":"https://www.cedent.com.ar",
         "tipo":"cedent","sitemap":None,"color":"#7c3aed",
         "categorias_urls":[
-            "/shop/category/operatoria-y-restauracion-adhesivos-168",
+            # Anestesias y Agujas
             "/shop/category/anestesias-y-agujas-53",
+            "/shop/category/anestesias-169",
+            "/shop/category/carpule-170",
+            "/shop/category/agujas-172",
+            "/shop/category/descartadores-173",
+            # Bioseguridad
             "/shop/category/bioseguridad-402",
-            "/shop/category/estetica-blanqueamiento-54",
+            # Cementos
             "/shop/category/cementos-55",
+            # Cirugia
             "/shop/category/cirugia-y-perio-56",
-            "/shop/category/operatoria-y-restauracion-composites-171",
+            # Descartables
             "/shop/category/descartables-57",
+            # Endodoncia
             "/shop/category/endodoncia-58",
+            # Equipamiento
             "/shop/category/equipamiento-59",
+            # Estetica
+            "/shop/category/estetica-blanqueamiento-54",
+            # Fresas
+            "/shop/category/fresas-piedras-174",
+            # Higiene
+            "/shop/category/higiene-bucal-175",
+            # Impresion
+            "/shop/category/impresion-62",
+            # Instrumental
             "/shop/category/instrumental-60",
+            # Laboratorio
             "/shop/category/laboratorio-61",
-            "/shop/category/materiales-de-impresion-62",
-            "/shop/category/ortodoncia-63",
+            # Operatoria y Restauracion
+            "/shop/category/operatoria-y-restauracion-adhesivos-168",
+            "/shop/category/operatoria-y-restauracion-composites-171",
+            "/shop/category/operatoria-y-restauracion-63",
+            # Ortodoncia
+            "/shop/category/ortodoncia-177",
+            # Protesis
             "/shop/category/protesis-64",
+            # Radiologia
             "/shop/category/radiologia-65",
+            # Yesos
             "/shop/category/yesos-66",
+            # Estudiantes
+            "/shop/category/estudiantes-178",
         ],
     },
 ]
@@ -616,47 +652,55 @@ def scrape_cedent(tienda):
                 prod_anchors = soup.select("a[href*='/shop/']")
                 
                 encontro_nuevos = False
-                prods_pagina = []
-                for a in prod_anchors:
-                    href = a.get("href", "")
-                    if any(x in href for x in EXCLUIR): continue
+
+                # Cedent (Odoo): los productos del listing tienen nombre y precio
+                # directamente en la pagina — no hace falta visitar cada URL individual
+                # Cada producto esta en un article/div con itemprop="name" y .oe_currency_value
+                prod_cards = soup.select("article.product_item, .o_wsale_product_grid_wrapper .o_wsale_product_information, div[itemtype*='Product']")
+
+                if not prod_cards:
+                    # Fallback: buscar por bloques que tengan nombre y precio juntos
+                    prod_cards = soup.select(".js_product, [data-product_id]")
+
+                for card in prod_cards:
+                    nombre_el = card.select_one("[itemprop='name'], h5, h6, .product-name")
+                    if not nombre_el: continue
+                    nombre = nombre_el.get_text(strip=True)
+                    if not nombre or len(nombre) < 3: continue
+
+                    # Precio: itemprop=price content o .oe_currency_value
+                    # Precio: preferir el precio con descuento (el más bajo)
+                    # itemprop=price tiene el precio base, pero puede haber oferta
+                    precio_el = card.select_one("[itemprop='price']")
+                    precio_base = limpiar_precio(precio_el.get("content", "0")) if precio_el else 0
+                    
+                    # Buscar todos los precios visibles y tomar el mínimo real
+                    cvs = card.select(".oe_currency_value")
+                    precios_visibles = [limpiar_precio(cv.get_text(strip=True)) for cv in cvs if limpiar_precio(cv.get_text(strip=True)) > 50]
+                    
+                    if precios_visibles:
+                        precio = min(precios_visibles)  # Tomar el más bajo (oferta)
+                    elif precio_base > 50:
+                        precio = precio_base
+                    else:
+                        precio = 0
+
+                    # URL del producto
+                    link_el = card.select_one("a[href*='/shop/']")
+                    href = link_el.get("href", "") if link_el else ""
                     if not href.startswith("http"): href = tienda["url_base"] + href
-                    # Limpiar parametros ?category=
                     href_limpia = href.split("?")[0]
                     if href_limpia in urls_vistas: continue
-                    prods_pagina.append((href_limpia, a))
                     urls_vistas.add(href_limpia)
 
-                if not prods_pagina and page > 1: break
+                    img_el = card.select_one("img")
+                    imagen = img_el.get("src", "") if img_el else ""
+                    if imagen and not imagen.startswith("http"):
+                        imagen = tienda["url_base"] + imagen
 
-                # Para cada producto del listing, obtener nombre y precio desde la pagina individual
-                for url_prod, _ in prods_pagina:
-                    try:
-                        rp = fetch(url_prod, timeout=15)
-                        if rp.status_code != 200: continue
-                        sp = BeautifulSoup(rp.text, "html.parser")
-                        
-                        nombre_el = sp.select_one("h1[itemprop='name'], h1.product-name, h1")
-                        nombre = nombre_el.get_text(strip=True) if nombre_el else ""
-                        
-                        # Precio con itemprop=price (content tiene el valor numerico)
-                        precio_el = sp.select_one("[itemprop='price']")
-                        if precio_el:
-                            precio = limpiar_precio(precio_el.get("content") or precio_el.get_text(strip=True))
-                        else:
-                            # Fallback: primer .oe_currency_value
-                            cv = sp.select_one(".oe_currency_value")
-                            precio = limpiar_precio(cv.get_text(strip=True)) if cv else 0
-
-                        img_el = sp.select_one('meta[property="og:image"]')
-                        imagen = img_el["content"] if img_el else ""
-
-                        if nombre and precio and precio > 50:
-                            productos.append(hacer_producto(tienda, nombre, precio, url_prod, imagen))
-                            encontro_nuevos = True
-                        time.sleep(DELAY)
-                    except Exception:
-                        continue
+                    if nombre and precio and precio > 50:
+                        productos.append(hacer_producto(tienda, nombre, precio, href_limpia, imagen))
+                        encontro_nuevos = True
 
                 if not encontro_nuevos and page > 1: break
                 # Paginacion Odoo
