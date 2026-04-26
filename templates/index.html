@@ -332,7 +332,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
       <p class="hero-sub">Comparás todas las distribuidoras en un solo lugar</p>
       <div class="search-wrap">
         <input type="text" class="search-input" id="search-input"
-          placeholder="Ej: composite, anestesia, fresa, bracket..."
+          placeholder="Ej: composite, anestesia, fresa..."
           autocomplete="off" spellcheck="false">
         <button class="search-btn" onclick="buscarDesdeBtn()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -372,7 +372,6 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
       <div class="lista-actions" id="lista-actions" style="display:none">
         <button class="btn-sm danger" onclick="limpiarLista()">🗑 Limpiar</button>
         <button class="btn-sm" onclick="copiarResumen()">📋 Copiar</button>
-        <button class="btn-sm whatsapp" onclick="compartirWhatsApp()">💬 WhatsApp</button>
       </div>
     </div>
     <div id="lista-metricas" style="display:none">
@@ -390,7 +389,6 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
       </div>
       <div class="footer-btns">
         <button class="btn-sm" onclick="copiarResumen()">📋 Copiar</button>
-        <button class="btn-sm whatsapp" onclick="compartirWhatsApp()">💬 WhatsApp</button>
       </div>
     </div>
   </div>
@@ -412,7 +410,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
       <h2>🏪 ¿Qué distribuidoras incluimos?</h2>
       <p>Actualmente comparamos precios de las siguientes distribuidoras:</p>
       <ul id="lista-tiendas-acerca">{% for t in tiendas %}<li>{{ t.nombre }}</li>{% endfor %}</ul>
-      <p style="margin-top:8px">¿Falta alguna distribuidora? <a href="mailto:odontoprecio@gmail.com" style="color:var(--accent)">Escribinos</a> y la agregamos.</p>
+      <p style="margin-top:8px">¿Falta alguna distribuidora? Escribinos a <strong>odontoprecio@gmail.com</strong> y la agregamos.</p>
     </div>
 
     <div class="acerca-section">
@@ -423,10 +421,10 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
     <div class="acerca-section">
       <h2>💡 ¿Cómo usar OdontoPrecio?</h2>
       <ul>
-        <li>Escribí el nombre del insumo en el buscador (ej: "composite 3m", "anestesia carpule")</li>
+        <li>Escribí el nombre del insumo en el buscador (ej: "composite", "anestesia", "fresa")</li>
         <li>Aparecen los resultados ordenados por relevancia y precio</li>
         <li>Hacé clic en "+ Agregar" para sumar productos a tu lista de compras</li>
-        <li>En "Mi lista" podés ver el total por distribuidora y compartirlo por WhatsApp</li>
+        <li>En "Mi lista" podés ver el total por distribuidora, copiar el resumen y compartirlo</li>
       </ul>
     </div>
 
@@ -452,7 +450,6 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
       <option value="precio_diferente">El precio es diferente al de la tienda</option>
       <option value="sin_stock">El producto está sin stock</option>
       <option value="producto_inexistente">El producto ya no existe</option>
-      <option value="precio_viejo">El precio está desactualizado</option>
       <option value="otro">Otro</option>
     </select>
     <label class="modal-label">Comentario (opcional)</label>
@@ -737,21 +734,7 @@ function copiarResumen() {
   navigator.clipboard.writeText(txt).then(() => toast('📋 Resumen copiado'));
 }
 
-function compartirWhatsApp() {
-  if (!lista.length) return;
-  const g = {};
-  lista.forEach(p => { if (!g[p.tienda_slug]) g[p.tienda_slug]={nombre:p.tienda_nombre,items:[]}; g[p.tienda_slug].items.push(p); });
-  let txt = '🦷 *Lista de insumos — OdontoPrecio*\n\n';
-  let total = 0;
-  Object.values(g).forEach(gr => {
-    const sub = gr.items.reduce((s,p)=>s+(p.precio||0)*(p.cantidad||1),0); total += sub;
-    txt += `*${gr.nombre}*\n`;
-    gr.items.forEach(p => { txt += `• ${p.nombre}${p.cantidad>1?` ×${p.cantidad}`:''} — ${fmt((p.precio||0)*(p.cantidad||1))}\n`; });
-    txt += `_Subtotal: ${fmt(sub)}_\n\n`;
-  });
-  txt += `*Total: ${fmt(total)}*\n_Precios de OdontoPrecio.onrender.com_`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
-}
+
 
 // ── REPORTE ──
 function abrirReporte(p) {
