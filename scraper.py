@@ -280,7 +280,21 @@ def scrape_producto_woocommerce(url, tienda):
         if r.status_code != 200: return None
         soup = BeautifulSoup(r.text, "html.parser")
         if soup.select_one(".out-of-stock, p.stock.out-of-stock"): return None
-        # Primero intentar variaciones de producto (WooCommerce variable product)
+
+        # Nombre e imagen comunes
+        nombre_el = soup.select_one("h1.product_title, h1.entry-title, h1")
+        nombre_base = nombre_el.get_text(strip=True) if nombre_el else ""
+        img_el = soup.select_one('meta[property="og:image"]')
+        imagen_base = img_el["content"] if img_el else ""
+
+        # PRIORIDAD 1: og:price — el más confiable, refleja precio real con ofertas
+        og_price_el = soup.select_one('meta[property="product:price:amount"]')
+        if og_price_el and og_price_el.get("content") and nombre_base:
+            precio_og = limpiar_precio(og_price_el["content"])
+            if precio_og and precio_og > 50:
+                return hacer_producto(tienda, nombre_base, precio_og, url, imagen_base)
+
+        # Luego intentar variaciones de producto (WooCommerce variable product)
         form_var = soup.select_one("form.variations_form[data-product_variations]")
         if form_var:
             try:

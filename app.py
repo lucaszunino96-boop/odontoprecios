@@ -10,7 +10,7 @@ from scraper import cargar_productos, correr_scraper, TIENDAS
 app = Flask(__name__)
 
 # ─── Cache en memoria ─────────────────────────────────────────
-_cache = {"productos": None}
+_cache = {"productos": None, "historial": None}
 
 def get_productos():
     if _cache["productos"] is None:
@@ -29,8 +29,8 @@ def _actualizar_si_es_necesario():
         if os.path.exists(DB_PATH):
             mod_time = os.path.getmtime(DB_PATH)
             edad_dias = (datetime.datetime.now().timestamp() - mod_time) / 86400
-            if edad_dias < 1:
-                print(f"Datos actualizados hace {edad_dias:.1f} dias (menos de 1 dia) — no es necesario scrapear.")
+            if edad_dias < 2:
+                print(f"Datos actualizados hace {edad_dias:.1f} dias (menos de 2 dias) — no es necesario scrapear.")
                 return
             print(f"Datos tienen {edad_dias:.1f} dias — actualizando precios...")
         else:
