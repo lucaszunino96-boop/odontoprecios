@@ -26,10 +26,10 @@ jobs:
       - name: Correr scraper
         run: python scraper.py
 
-      - name: Subir productos.json e historial.json
+      - name: Subir productos.json
         run: |
           git config user.name "OdontoPrecio Bot"
           git config user.email "bot@odontoprecios.onrender.com"
-          git add productos.json historial.json || true
+          git add productos.json || true
           git diff --staged --quiet || git commit -m "Actualizacion automatica $(date '+%d/%m/%Y %H:%M')"
           git push
