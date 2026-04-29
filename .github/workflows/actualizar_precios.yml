@@ -28,13 +28,19 @@ jobs:
       - name: Correr scraper
         run: python scraper.py
 
-      - name: Subir productos.json
+      - name: Guardar y subir cambios
         run: |
           git config user.name "OdontoPrecio Bot"
           git config user.email "bot@odontoprecios.onrender.com"
-          git add productos.json || true
-          git add historial.json || true
-          # El comando 'pull --rebase' trae los cambios de GitHub y pone los tuyos arriba
+          
+          # Agregamos todos los archivos generados (productos e historial)
+          git add .
+          
+          # Creamos el paquete con los cambios. Si no hay nada nuevo, no falla.
+          git commit -m "Actualización automática de precios: $(date +'%d/%m/%Y')" || exit 0
+          
+          # Nos aseguramos de estar sincronizados con el servidor
           git pull --rebase origin main
-          git diff --staged --quiet || git commit -m "Actualizacion automatica $(date '+%d/%m/%Y %H:%M')"
+          
+          # Subimos los archivos al repositorio
           git push origin main
