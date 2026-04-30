@@ -32,7 +32,7 @@ TIENDAS = [
     {"slug":"grimberg","nombre":"Grimberg Dentales","url_base":"https://grimbergdentales.com","tipo":"woocommerce","sitemap":"https://grimbergdentales.com/product-sitemap.xml","filtro_sitemap":"/producto/","color":"#2a9d8f"},
     {"slug":"dentalshop","nombre":"Dental Shop","url_base":"https://dentalshop.com.ar","tipo":"woocommerce","sitemap":"https://dentalshop.com.ar/wp-sitemap-posts-product-1.xml","filtro_sitemap":"/product/","color":"#e63946"},
     {"slug":"dento","nombre":"Dento","url_base":"https://dento.com.ar","tipo":"woocommerce","sitemap":"https://dento.com.ar/wp-sitemap-posts-product-1.xml","filtro_sitemap":"/product/","color":"#7c3aed"},
-    {"slug":"dentalmedrano","nombre":"Dental Medrano","url_base":"https://dentalmedrano.com","tipo":"woocommerce","sitemap":"https://dentalmedrano.com/product-sitemap.xml","filtro_sitemap":"/producto/","color":"#ea580c","sitemap_extra":"https://dentalmedrano.com/product-sitemap2.xml"},
+    {"slug":"dentalmedrano","nombre":"Dental Medrano","url_base":"https://dentalmedrano.com","tipo":"woocommerce","sitemap":"https://dentalmedrano.com/product-sitemap.xml","filtro_sitemap":"/producto/","color":"#ea580c","sitemap_extra":"https://dentalmedrano.com/product-sitemap2.xml","sitemap_extra2":"https://dentalmedrano.com/product-sitemap3.xml","sitemap_extra3":"https://dentalmedrano.com/product-sitemap4.xml","sitemap_extra4":"https://dentalmedrano.com/product-sitemap5.xml"},
     {"slug":"dentalstorearg","nombre":"Dental Store Argentina","url_base":"https://dentalstoreargentina.com","tipo":"woocommerce","sitemap":"https://dentalstoreargentina.com/wp-sitemap-posts-product-1.xml","filtro_sitemap":"/producto/","color":"#0d9488"},
     {"slug":"axdental","nombre":"Axdental","url_base":"https://axdental.com.ar","tipo":"woocommerce","sitemap":"https://axdental.com.ar/product-sitemap.xml","filtro_sitemap":"/productos/","color":"#be185d"},
     {"slug":"bairesdental","nombre":"Baires Dental","url_base":"https://bairesdental.com.ar","tipo":"woocommerce","sitemap":"https://bairesdental.com.ar/wp-sitemap-posts-product-1.xml","filtro_sitemap":"/producto/","color":"#475569"},
@@ -257,30 +257,56 @@ def hacer_producto(tienda, nombre, precio, url_prod, imagen):
     }
 
 # ─── SITEMAP ──────────────────────────────────────────────────────────────────
+def _parsear_sitemap(texto, filtro):
+    """Extrae (url, lastmod) de un texto XML de sitemap."""
+    locs = re.findall(r'<loc>(https?://[^<]+)</loc>', texto)
+    lastmods = re.findall(r'<lastmod>([^<]+)</lastmod>', texto)
+    if not locs:
+        for parser in ["xml", "html.parser"]:
+            soup = BeautifulSoup(texto, parser)
+            locs = [l.text for l in soup.find_all("loc")]
+            lastmods = [l.text for l in soup.find_all("lastmod")]
+            if locs: break
+    EXCLUIR = ["/categoria-producto/", "/product-category/", "/tag/", "/categoria/"]
+    resultado = []
+    for i, u in enumerate(locs):
+        if any(x in u for x in EXCLUIR): continue
+        if filtro not in u: continue
+        lm = lastmods[i] if i < len(lastmods) else ""
+        resultado.append((u, lm))
+    return resultado
+
 def obtener_urls_sitemap(sitemap_url, filtro):
-    """Retorna lista de (url, lastmod_str) del sitemap."""
+    """
+    Retorna lista de (url, lastmod_str) del sitemap.
+    Si la URL termina en -1.xml o _1.xml, intenta automáticamente -2.xml, -3.xml...
+    hasta obtener 404 o 0 resultados. Cubre sitemaps paginados de WooCommerce.
+    """
     try:
         r = fetch(sitemap_url, timeout=20)
         if r.status_code != 200: return []
-        # Extraer locs y lastmods en paralelo con regex (más rápido y confiable que BeautifulSoup)
-        locs = re.findall(r'<loc>(https?://[^<]+)</loc>', r.text)
-        lastmods = re.findall(r'<lastmod>([^<]+)</lastmod>', r.text)
-        # Si BeautifulSoup lo parsea mejor, usar como fallback
-        if not locs:
-            for parser in ["xml", "html.parser"]:
-                soup = BeautifulSoup(r.text, parser)
-                locs = [l.text for l in soup.find_all("loc")]
-                lastmods = [l.text for l in soup.find_all("lastmod")]
-                if locs: break
-        EXCLUIR = ["/categoria-producto/", "/product-category/", "/tag/", "/categoria/"]
-        # Emparejar locs con lastmods (pueden tener diferente cantidad)
-        resultado = []
-        lm_idx = 0
-        for i, u in enumerate(locs):
-            if any(x in u for x in EXCLUIR): continue
-            if filtro not in u: continue
-            lm = lastmods[i] if i < len(lastmods) else ""
-            resultado.append((u, lm))
+        resultado = _parsear_sitemap(r.text, filtro)
+        
+        # Detectar si es un sitemap paginado (termina en -1.xml o _1.xml)
+        match = re.search(r'(-|_)1[.]xml$', sitemap_url)
+        if match and resultado:
+            sep = match.group(1)
+            base = sitemap_url[:sitemap_url.rfind(sep + '1.xml')]
+            page = 2
+            while True:
+                next_url = f"{base}{sep}{page}.xml"
+                try:
+                    r2 = fetch(next_url, timeout=15)
+                    if r2.status_code != 200: break
+                    nuevos = _parsear_sitemap(r2.text, filtro)
+                    if not nuevos: break
+                    resultado += nuevos
+                    print(f"  + sitemap pág {page}: {len(nuevos)} URLs")
+                    page += 1
+                    if page > 20: break  # límite de seguridad
+                except Exception:
+                    break
+        
         return resultado
     except Exception as e:
         print(f"  ! Sitemap error: {e}")
@@ -417,8 +443,10 @@ def scrape_con_sitemap(tienda, cache_existente=None):
 
     print(f"  Leyendo sitemap...")
     pares = obtener_urls_sitemap(tienda["sitemap"], tienda["filtro_sitemap"])
-    if tienda.get("sitemap_extra"):
-        pares += obtener_urls_sitemap(tienda["sitemap_extra"], tienda["filtro_sitemap"])
+    # Leer todos los sitemaps extra (sitemap_extra, sitemap_extra2, sitemap_extra3...)
+    for key in sorted(k for k in tienda if k.startswith("sitemap_extra")):
+        extra_urls = obtener_urls_sitemap(tienda[key], tienda["filtro_sitemap"])
+        pares += extra_urls
 
     # Deduplicar por URL
     vistos = set()
