@@ -480,6 +480,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 // ── ESTADO ──
 let lista = JSON.parse(localStorage.getItem('odontoprecio_lista') || '[]');
 lista = lista.map(p => ({...p, cantidad: p.cantidad || 1}));
+let ordenTiendas = JSON.parse(localStorage.getItem('odontoprecio_orden_tiendas') || '[]');
 let searchTimer = null;
 let productoReporte = null;
 let queryActual = '';
@@ -664,6 +665,10 @@ function toggleLista(p) {
     toast('Quitado de la lista');
   } else {
     lista.push({...p, cantidad: 1});
+    // Registrar orden de tienda si es nueva
+    if (!ordenTiendas.includes(p.tienda_slug)) {
+      ordenTiendas.push(p.tienda_slug);
+    }
     if (btn) { btn.textContent = '✓ En lista'; btn.classList.add('agregado'); }
     toast(`✓ Agregado · ${p.precio_fmt}`);
     document.getElementById('hdr-badge').classList.add('pulse');
@@ -705,7 +710,7 @@ function renderLista() {
     return;
   }
 
-  // FIX: Map garantiza orden de inserción, Object no
+  // Construir grupos respetando el orden original de agregado
   const gruposMap = new Map();
   lista.forEach(p => {
     if (!gruposMap.has(p.tienda_slug)) {
@@ -718,11 +723,18 @@ function renderLista() {
     }
     gruposMap.get(p.tienda_slug).items.push(p);
   });
+  // Reordenar según el orden original de inserción de tiendas
+  const gruposOrdenados = new Map();
+  ordenTiendas.forEach(slug => {
+    if (gruposMap.has(slug)) gruposOrdenados.set(slug, gruposMap.get(slug));
+  });
+  // Tiendas que no estaban en ordenTiendas (por si acaso) van al final
+  gruposMap.forEach((v, k) => { if (!gruposOrdenados.has(k)) gruposOrdenados.set(k, v); });
 
   let total = 0;
-  const n = gruposMap.size;
+  const n = gruposOrdenados.size;
 
-  const cards = Array.from(gruposMap.values()).map(g => {
+  const cards = Array.from(gruposOrdenados.values()).map(g => {
     const sub = g.items.reduce((s, p) => s + (p.precio || 0) * (p.cantidad || 1), 0);
     total += sub;
     const items = g.items.map(p => {
@@ -771,7 +783,7 @@ function renderLista() {
 
 function limpiarLista() {
   if (!confirm('¿Limpiar toda la lista?')) return;
-  lista = []; guardarLista(); actualizarBadges(); renderLista();
+  lista = []; ordenTiendas = []; guardarLista(); actualizarBadges(); renderLista();
   document.querySelectorAll('.btn-agregar.agregado').forEach(b => { b.textContent = '+ Agregar'; b.classList.remove('agregado'); });
   toast('Lista limpiada');
 }
@@ -841,7 +853,10 @@ document.getElementById('modal-reporte').addEventListener('click', e => {
 });
 
 // ── UTILS ──
-function guardarLista() { localStorage.setItem('odontoprecio_lista', JSON.stringify(lista)); }
+function guardarLista() {
+  localStorage.setItem('odontoprecio_lista', JSON.stringify(lista));
+  localStorage.setItem('odontoprecio_orden_tiendas', JSON.stringify(ordenTiendas));
+}
 function actualizarBadges() {
   const n = lista.length;
   const hb = document.getElementById('hdr-badge');
