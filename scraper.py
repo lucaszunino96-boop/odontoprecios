@@ -258,18 +258,30 @@ def hacer_producto(tienda, nombre, precio, url_prod, imagen):
 
 # ─── SITEMAP ──────────────────────────────────────────────────────────────────
 def obtener_urls_sitemap(sitemap_url, filtro):
+    """Retorna lista de (url, lastmod_str) del sitemap."""
     try:
         r = fetch(sitemap_url, timeout=20)
         if r.status_code != 200: return []
-        for parser in ["xml", "html.parser"]:
-            soup = BeautifulSoup(r.text, parser)
-            locs = [l.text for l in soup.find_all("loc")]
-            if locs: break
+        # Extraer locs y lastmods en paralelo con regex (más rápido y confiable que BeautifulSoup)
+        locs = re.findall(r'<loc>(https?://[^<]+)</loc>', r.text)
+        lastmods = re.findall(r'<lastmod>([^<]+)</lastmod>', r.text)
+        # Si BeautifulSoup lo parsea mejor, usar como fallback
         if not locs:
-            locs = re.findall(r'<loc>(https?://[^<]+)</loc>', r.text)
+            for parser in ["xml", "html.parser"]:
+                soup = BeautifulSoup(r.text, parser)
+                locs = [l.text for l in soup.find_all("loc")]
+                lastmods = [l.text for l in soup.find_all("lastmod")]
+                if locs: break
         EXCLUIR = ["/categoria-producto/", "/product-category/", "/tag/", "/categoria/"]
-        urls = [u for u in locs if filtro in u and not any(x in u for x in EXCLUIR)]
-        return urls
+        # Emparejar locs con lastmods (pueden tener diferente cantidad)
+        resultado = []
+        lm_idx = 0
+        for i, u in enumerate(locs):
+            if any(x in u for x in EXCLUIR): continue
+            if filtro not in u: continue
+            lm = lastmods[i] if i < len(lastmods) else ""
+            resultado.append((u, lm))
+        return resultado
     except Exception as e:
         print(f"  ! Sitemap error: {e}")
         return []
@@ -394,26 +406,81 @@ def scrape_producto_prestashop(url, tienda):
         return None
 
 # ─── MOTOR CON SITEMAP ────────────────────────────────────────────────────────
-def scrape_con_sitemap(tienda):
+def scrape_con_sitemap(tienda, cache_existente=None):
+    """
+    Scrapea productos del sitemap.
+    Si lastmod tiene más de 2 días Y el producto ya existe en cache → lo reutiliza.
+    Solo visita las URLs nuevas o modificadas recientemente.
+    """
+    from datetime import datetime, timezone
+    UMBRAL_DIAS = 2  # si lastmod > N días, reutilizar precio existente
+
     print(f"  Leyendo sitemap...")
-    urls = obtener_urls_sitemap(tienda["sitemap"], tienda["filtro_sitemap"])
+    pares = obtener_urls_sitemap(tienda["sitemap"], tienda["filtro_sitemap"])
     if tienda.get("sitemap_extra"):
-        urls += obtener_urls_sitemap(tienda["sitemap_extra"], tienda["filtro_sitemap"])
-    urls = list(set(urls))
-    print(f"  {len(urls)} URLs — scrapeando...")
-    if not urls: return []
+        pares += obtener_urls_sitemap(tienda["sitemap_extra"], tienda["filtro_sitemap"])
+
+    # Deduplicar por URL
+    vistos = set()
+    pares_uniq = []
+    for url, lm in pares:
+        if url not in vistos:
+            vistos.add(url)
+            pares_uniq.append((url, lm))
+
+    print(f"  {len(pares_uniq)} URLs en sitemap")
+    if not pares_uniq: return []
+
+    # Construir índice del cache existente: url -> producto
+    cache_url = {}
+    if cache_existente:
+        for p in cache_existente:
+            if p.get("tienda_slug") == tienda["slug"] and p.get("url"):
+                cache_url[p["url"]] = p
+
+    hoy = datetime.now(timezone.utc)
     fn = scrape_producto_tiendanube if tienda["tipo"] == "tiendanube" else scrape_producto_woocommerce
-    productos, errores, total = [], 0, len(urls)
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = {executor.submit(fn, url, tienda): url for url in urls}
-        for i, future in enumerate(as_completed(futures), 1):
-            r = future.result()
-            if r: productos.append(r)
-            else: errores += 1
-            if i % 100 == 0 or i == total:
-                print(f"  [{i}/{total}] {len(productos)} OK, {errores} sin precio/stock")
-            time.sleep(DELAY / MAX_WORKERS)
-    return productos
+
+    urls_a_scrapear = []
+    productos_reutilizados = []
+
+    for url, lastmod_str in pares_uniq:
+        # Intentar reutilizar si tiene lastmod y ya existe en cache
+        if lastmod_str and url in cache_url:
+            try:
+                # Parsear fecha — acepta formatos con y sin timezone
+                lm_clean = lastmod_str.strip().replace("Z", "+00:00")
+                if "T" not in lm_clean:
+                    lm_clean += "T00:00:00+00:00"
+                fecha_mod = datetime.fromisoformat(lm_clean)
+                if not fecha_mod.tzinfo:
+                    fecha_mod = fecha_mod.replace(tzinfo=timezone.utc)
+                dias = (hoy - fecha_mod).days
+                if dias > UMBRAL_DIAS:
+                    # Producto no cambió — reutilizar pero actualizar timestamp
+                    prod = dict(cache_url[url])
+                    prod["actualizado"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                    productos_reutilizados.append(prod)
+                    continue
+            except Exception:
+                pass  # Si falla el parsing, scrapear igual
+        urls_a_scrapear.append(url)
+
+    print(f"  {len(urls_a_scrapear)} a scrapear, {len(productos_reutilizados)} reutilizados del cache")
+
+    productos_nuevos, errores, total = [], 0, len(urls_a_scrapear)
+    if urls_a_scrapear:
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = {executor.submit(fn, url, tienda): url for url in urls_a_scrapear}
+            for i, future in enumerate(as_completed(futures), 1):
+                r = future.result()
+                if r: productos_nuevos.append(r)
+                else: errores += 1
+                if i % 100 == 0 or i == total:
+                    print(f"  [{i}/{total}] {len(productos_nuevos)} OK, {errores} sin precio/stock")
+                time.sleep(DELAY / MAX_WORKERS)
+
+    return productos_nuevos + productos_reutilizados
 
 # ─── MOTOR PAGINADO WOOCOMMERCE ───────────────────────────────────────────────
 def scrape_paginado_woocommerce(tienda):
@@ -695,13 +762,22 @@ def scrape_cedent(tienda):
 def correr_scraper():
     todos = []
     inicio_total = time.time()
+    # Cargar cache existente para reutilizar productos sin cambios
+    cache_existente = []
+    if os.path.exists(DB_PATH):
+        try:
+            with open(DB_PATH, encoding="utf-8") as f:
+                cache_existente = json.load(f)
+            print(f"Cache cargado: {len(cache_existente)} productos existentes")
+        except Exception:
+            cache_existente = []
     for tienda in TIENDAS:
         inicio = time.time()
         print(f"\n{'='*50}\nScrapeando: {tienda['nombre']}\n{'='*50}")
         try:
             tipo = tienda["tipo"]
             if tipo in ("tiendanube", "woocommerce") and tienda.get("sitemap"):
-                prods = scrape_con_sitemap(tienda)
+                prods = scrape_con_sitemap(tienda, cache_existente=cache_existente)
             elif tipo == "woocommerce_paginado":
                 prods = scrape_paginado_woocommerce(tienda)
             elif tipo == "prestashop":
