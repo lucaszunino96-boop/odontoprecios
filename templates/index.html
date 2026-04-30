@@ -255,6 +255,12 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 
 /* AVISO INFERIOR */
 .aviso-inferior { background:var(--surface); border-top:1px solid var(--border); padding:12px 24px; text-align:center; font-size:11.5px; color:var(--text3); }
+.paginacion { display:flex; align-items:center; justify-content:center; gap:6px; padding:24px 0 8px; flex-wrap:wrap; }
+.pag-btn { min-width:36px; height:36px; padding:0 10px; border-radius:8px; border:1.5px solid var(--border2); background:var(--surface); color:var(--text); font-family:var(--font-b); font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; }
+.pag-btn:hover { border-color:var(--accent); color:var(--accent); }
+.pag-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.pag-btn:disabled { opacity:.35; cursor:default; }
+.pag-info { font-size:12px; color:var(--text2); padding:0 8px; }
 .aviso-inferior a { color:var(--accent); text-decoration:none; }
 .aviso-inferior a:hover { text-decoration:underline; }
 
@@ -358,6 +364,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
         <p>Escribí en el buscador para comparar precios<br>de todas las distribuidoras al mismo tiempo</p>
       </div>
     </div>
+    <div class="paginacion" id="paginacion"></div>
   </div>
 </div>
 
@@ -475,6 +482,10 @@ let lista = JSON.parse(localStorage.getItem('odontoprecio_lista') || '[]');
 lista = lista.map(p => ({...p, cantidad: p.cantidad || 1}));
 let searchTimer = null;
 let productoReporte = null;
+let queryActual = '';
+let paginaActual = 0;
+let totalResultados = 0;
+const LIMIT = 30;
 
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
@@ -534,26 +545,55 @@ function buscarDesdeBtn() {
   if (q.length >= 2) buscar(q);
 }
 
-async function buscar(q) {
+async function buscar(q, offset = 0) {
+  queryActual = q;
+  paginaActual = Math.floor(offset / LIMIT);
   document.getElementById('loading').style.display = 'block';
   document.getElementById('products-grid').innerHTML = '';
+  document.getElementById('paginacion').innerHTML = '';
   document.getElementById('results-label').textContent = `Resultados para "${q}"`;
   document.getElementById('results-count').textContent = '';
-  if (window.gtag) gtag('event', 'search', {search_term: q});
+  if (window.gtag && offset === 0) gtag('event', 'search', {search_term: q});
   try {
-    const r = await fetch(`/api/buscar?q=${encodeURIComponent(q)}`);
-    const prods = await r.json();
+    const r = await fetch(`/api/buscar?q=${encodeURIComponent(q)}&offset=${offset}`);
+    const data = await r.json();
     document.getElementById('loading').style.display = 'none';
-    if (!prods.length) {
+    const prods = data.resultados || [];
+    totalResultados = data.total || 0;
+    if (totalResultados === 0) {
       document.getElementById('products-grid').innerHTML = `<div class="empty-state"><span class="es-icon">🤷</span><h3>Sin resultados</h3><p>No encontramos "<strong>${esc(q)}</strong>" en ninguna distribuidora.</p></div>`;
       return;
     }
-    document.getElementById('results-count').textContent = `${prods.length} resultado${prods.length !== 1 ? 's' : ''}`;
+    document.getElementById('results-count').textContent = `${totalResultados} resultado${totalResultados !== 1 ? 's' : ''}`;
     renderProductos(prods);
+    renderPaginacion(offset, totalResultados);
+    window.scrollTo({top: 0, behavior: 'smooth'});
   } catch {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('products-grid').innerHTML = `<div class="empty-state"><span class="es-icon">⚠️</span><h3>Error</h3><p>No se pudo conectar con el servidor.</p></div>`;
   }
+}
+
+function renderPaginacion(offset, total) {
+  const pag = document.getElementById('paginacion');
+  const totalPags = Math.ceil(total / LIMIT);
+  if (totalPags <= 1) { pag.innerHTML = ''; return; }
+  const actual = Math.floor(offset / LIMIT);
+  let html = '';
+  // Anterior
+  html += `<button class="pag-btn" onclick="buscar('${esc(queryActual)}',${Math.max(0,(actual-1)*LIMIT)})" ${actual===0?'disabled':''}>← Ant</button>`;
+  // Páginas
+  const delta = 2;
+  for (let i = 0; i < totalPags; i++) {
+    if (i === 0 || i === totalPags-1 || (i >= actual-delta && i <= actual+delta)) {
+      html += `<button class="pag-btn ${i===actual?'active':''}" onclick="buscar('${esc(queryActual)}',${i*LIMIT})">${i+1}</button>`;
+    } else if (i === actual-delta-1 || i === actual+delta+1) {
+      html += `<span class="pag-info">…</span>`;
+    }
+  }
+  // Siguiente
+  html += `<button class="pag-btn" onclick="buscar('${esc(queryActual)}',${(actual+1)*LIMIT})" ${actual===totalPags-1?'disabled':''}>Sig →</button>`;
+  pag.innerHTML = html;
 }
 
 function mostrarVacio() {
