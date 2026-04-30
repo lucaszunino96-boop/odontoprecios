@@ -10,7 +10,7 @@ except ImportError:
     USE_CURL = False
 
 from bs4 import BeautifulSoup
-import json, os, time, re
+import json, os, time, re, hashlib, hashlib
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -244,7 +244,7 @@ def formatear_precio(precio):
 
 def hacer_producto(tienda, nombre, precio, url_prod, imagen):
     return {
-        "id": f"{tienda['slug']}_{abs(hash(url_prod))}",
+        "id": f"{tienda['slug']}_{hashlib.md5(url_prod.encode()).hexdigest()[:16]}",
         "nombre": nombre.strip()[:200],
         "precio": precio,
         "precio_fmt": formatear_precio(precio),
@@ -826,7 +826,7 @@ def correr_scraper():
         print(f"  TOTAL: {len(prods)} productos en {int(time.time()-inicio)}s")
         todos.extend(prods)
     with open(DB_PATH, "w", encoding="utf-8") as f:
-        json.dump(todos, f, ensure_ascii=False, indent=2)
+        json.dump(todos, f, ensure_ascii=False)
     print(f"\n{'='*50}\nTERMINADO: {len(todos)} productos en {int(time.time()-inicio_total)}s\nGuardado en: {DB_PATH}\n{'='*50}")
     return todos
 
