@@ -1,16 +1,13 @@
 name: Actualizar precios
-
 on:
   schedule:
     - cron: '0 10 * * *'
   workflow_dispatch:
-
 jobs:
   scrape:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - name: Clonar repositorio
         uses: actions/checkout@v4
@@ -32,15 +29,7 @@ jobs:
         run: |
           git config user.name "OdontoPrecio Bot"
           git config user.email "bot@odontoprecios.onrender.com"
-          
-          # Agregamos todos los archivos generados (productos e historial)
-          git add .
-          
-          # Creamos el paquete con los cambios. Si no hay nada nuevo, no falla.
-          git commit -m "Actualización automática de precios: $(date +'%d/%m/%Y')" || exit 0
-          
-          # Nos aseguramos de estar sincronizados con el servidor
-          git pull --rebase origin main
-          
-          # Subimos los archivos al repositorio
-          git push origin main
+          git add productos.json historial.json 2>/dev/null || true
+          git diff --cached --quiet && echo "Sin cambios." && exit 0
+          git commit -m "Actualizacion automatica de precios: $(date +'%d/%m/%Y')"
+          git push --force-with-lease origin main
