@@ -20,13 +20,8 @@ def get_productos():
     return _cache["productos"]
 
 def get_nombres_norm():
-    if _cache["nombres_norm"] is None:
-        productos = get_productos()
-        _cache["nombres_norm"] = [
-            re.sub(r" +", " ", re.sub(r"[-./()\\[\\]]", " ", p["nombre"].lower())).strip()
-            for p in productos
-        ]
-    return _cache["nombres_norm"]
+    """Usa el índice invertido — construye si no existe."""
+    return get_nombres_norm_con_indice()
 
 def _actualizar_si_es_necesario():
     import datetime
@@ -57,19 +52,124 @@ def _actualizar_si_es_necesario():
 
 
 # ─── BÚSQUEDA ─────────────────────────────────────────────────────────────────
-STOPWORDS = {"de","el","la","lo","los","las","en","con","por","para","y","o","e","un","una","x"}
-MIN_FUZZY = 75
+import unicodedata
+from collections import defaultdict
+
+STOPWORDS = {"de","el","la","lo","los","las","en","con","por","para","y","o","e","un","una","x","a"}
+MIN_FUZZY = 72
+
+# Sinónimos odontológicos
+SINONIMOS_GRUPOS = [
+    {"composite","resina","compomero","restaurador"},
+    {"anestesia","anescart","carpule","mepivacaina","lidocaina","articaina",
+     "scandicaine","mepinor","alphacaine","ultracaine","septocaine"},
+    {"gutapercha","guttapercha","guta","conos gutapercha","puntas gutapercha"},
+    {"lima","limas","endodoncia","protaper","waveone","reciproc","mtwo"},
+    {"fresa","fresas","turbina","micromotor","contraangulo"},
+    {"bracket","brackets","ortodoncia","arco","alambre"},
+    {"adhesivo","bond","primer","bonding"},
+    {"cemento","ionomero","ionómero","relyx","panavia","multilink"},
+    {"blanqueamiento","blanqueador","whitening","peroxido"},
+    {"impresion","alginato","silicona","vinilpolisiloxano","putty"},
+    {"guante","guantes","latex","nitrilo","bioseguridad"},
+    {"radiografia","rx","pelicula","placa radiografica"},
+    {"poste","perno","fibra de vidrio"},
+    {"sellante","sellador","fisuras"},
+    {"yeso","escayola","piedra dental"},
+    {"protesis","acrilico","dentadura"},
+    {"banda de matriz","rollo de matriz","tofflemire","palodent"},
+    {"hipoclorito","irrigante","edta","irrigacion"},
+    {"cirugia","bisturi","suturas","periodoncia"},
+    {"implante","implantologia","pilar","tornillo"},
+]
+
+def _norm_sin(s):
+    t = unicodedata.normalize("NFD", s.lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    return re.sub(r" +", " ", re.sub(r"[^a-z0-9 ]", " ", t)).strip()
+
+_SINONIMOS_MAP = {}
+for _grupo in SINONIMOS_GRUPOS:
+    for _termino in _grupo:
+        _tn = _norm_sin(_termino)
+        _SINONIMOS_MAP[_tn] = {_norm_sin(s) for s in _grupo if s != _termino}
 
 def normalizar(texto):
-    t = re.sub(r"[-./()\\[\\]]", " ", texto.lower())
+    """Minúsculas, sin acentos, sin caracteres especiales."""
+    t = unicodedata.normalize("NFD", texto.lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    t = re.sub(r"[-./()%,;:!?\\[\\]]", " ", t)
     return re.sub(r" +", " ", t).strip()
 
+def stemming_basico(token):
+    """Reduce plurales y variantes comunes en español."""
+    if len(token) <= 3:
+        return token
+    if token.endswith("ces"):  return token[:-3] + "z"
+    if token.endswith("ques"): return token[:-3] + "ca"
+    if token.endswith("es") and len(token) > 4: return token[:-2]
+    if token.endswith("s") and len(token) > 3:  return token[:-1]
+    return token
+
+# ─── ÍNDICE INVERTIDO ─────────────────────────────────────────────────────────
+_indice: dict = {}
+_nombres_norm_cache: list = []
+
+def construir_indice(productos):
+    global _indice, _nombres_norm_cache
+    indice = defaultdict(set)
+    nombres_norm = []
+    for i, p in enumerate(productos):
+        norm = normalizar(p["nombre"])
+        nombres_norm.append(norm)
+        tokens = [t for t in norm.split() if t not in STOPWORDS and len(t) > 1]
+        for token in tokens:
+            stem = stemming_basico(token)
+            indice[token].add(i)
+            if stem != token:
+                indice[stem].add(i)
+            for sin in _SINONIMOS_MAP.get(token, set()):
+                indice[f"__sin__{sin}"].add(i)
+    _indice = dict(indice)
+    _nombres_norm_cache = nombres_norm
+    return nombres_norm
+
+def get_nombres_norm_con_indice():
+    productos = get_productos()
+    if not _nombres_norm_cache or len(_nombres_norm_cache) != len(productos):
+        return construir_indice(productos)
+    return _nombres_norm_cache
+
+def busqueda_por_indice(tokens_query):
+    if not tokens_query or not _indice:
+        return None
+    sets_por_token = []
+    for token in tokens_query:
+        stem = stemming_basico(token)
+        candidatos = set()
+        if token in _indice: candidatos |= _indice[token]
+        if stem in _indice:  candidatos |= _indice[stem]
+        if len(token) >= 3:
+            for key in _indice:
+                if key.startswith(token) and not key.startswith("__sin__"):
+                    candidatos |= _indice[key]
+        sin_key = f"__sin__{token}"
+        if sin_key in _indice: candidatos |= _indice[sin_key]
+        if not candidatos:
+            return set()
+        sets_por_token.append(candidatos)
+    resultado = sets_por_token[0]
+    for s in sets_por_token[1:]:
+        resultado = resultado & s
+    return resultado
+
 def busqueda_exacta(q_norm, productos, nombres_norm):
-    """Todos los tokens del query deben aparecer en el nombre."""
     tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
     if not tokens:
         return []
-    # FIX: pre-compilar regex una sola vez por búsqueda (2.4x más rápido)
+    candidatos_idx = busqueda_por_indice(tokens)
+    if candidatos_idx is not None:
+        return [productos[i] for i in sorted(candidatos_idx)]
     patrones = [re.compile(r"(?<![a-z0-9])" + re.escape(t) + r"(?![a-z0-9])") for t in tokens]
     resultados = []
     for i, nombre in enumerate(nombres_norm):
@@ -80,15 +180,13 @@ def busqueda_exacta(q_norm, productos, nombres_norm):
 
 def score_fuzzy(q_norm, nombre_norm):
     tokens_q = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 2]
-    if not tokens_q:
-        return 0
+    if not tokens_q: return 0
     nombre_junto = nombre_norm.replace(" ", "")
     alguno_presente = any(
         any(tq in tn or tn in tq for tn in nombre_norm.split()) or tq in nombre_junto
         for tq in tokens_q
     )
-    if not alguno_presente:
-        return 0
+    if not alguno_presente: return 0
     return max(int(fuzz.partial_ratio(q_norm, nombre_norm)),
                int(fuzz.token_set_ratio(q_norm, nombre_norm)))
 
@@ -97,8 +195,7 @@ def busqueda_fuzzy(q_norm, productos, nombres_norm, excluir_ids=None):
     resultados = []
     for i, nombre in enumerate(nombres_norm):
         p = productos[i]
-        if p["id"] in excluir:
-            continue
+        if p["id"] in excluir: continue
         s = score_fuzzy(q_norm, nombre)
         if s >= MIN_FUZZY:
             resultados.append((s, p))
@@ -225,6 +322,10 @@ def actualizar():
         nuevos = correr_scraper()
         _cache["productos"] = nuevos
         _cache["nombres_norm"] = None
+        # Reconstruir índice invertido con nuevos productos
+        global _nombres_norm_cache, _indice
+        _nombres_norm_cache = []
+        _indice = {}
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({"ok": True, "mensaje": "Actualizando en segundo plano..."})
 
