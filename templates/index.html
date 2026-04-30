@@ -185,7 +185,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
 .metrica { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px 20px; }
 .metrica-label { font-size:11px; font-weight:600; color:var(--text2); text-transform:uppercase; letter-spacing:.6px; margin-bottom:5px; }
 .metrica-val { font-family:var(--font-d); font-size:26px; font-weight:700; letter-spacing:-.5px; }
-.tiendas-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+.tiendas-grid { display:grid; grid-template-columns:1fr; gap:12px; }
 .tienda-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--sh-sm); }
 .tienda-card-hdr { padding:14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); background:var(--bg); }
 .tienda-card-nombre { display:flex; align-items:center; gap:9px; font-size:14px; font-weight:700; }
@@ -370,7 +370,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
         <div class="lista-sub" id="lista-sub">0 productos · 0 distribuidoras</div>
       </div>
       <div class="lista-actions" id="lista-actions" style="display:none">
-        <button class="btn-sm danger" onclick="limpiarLista()">🗑 Limpiar</button>
+        <button class="btn-sm danger" onclick="limpiarLista()">🗑 Vaciar carrito</button>
         <button class="btn-sm" onclick="copiarResumen()">📋 Copiar</button>
       </div>
     </div>
