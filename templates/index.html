@@ -422,7 +422,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
       <h2>💡 ¿Cómo usar OdontoPrecio?</h2>
       <ul>
         <li>Escribí el nombre del insumo en el buscador (ej: "composite", "anestesia", "fresa")</li>
-        <li>Aparecen los resultados ordenados por relevancia y precio</li>
+        <li>Aparecen los resultados ordenados de menor a mayor precio</li>
         <li>Hacé clic en "+ Agregar" para sumar productos a tu lista de compras</li>
         <li>En "Mi lista" podés ver el total por distribuidora, copiar el resumen y compartirlo</li>
       </ul>
@@ -434,7 +434,7 @@ body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-
     </div>
 
     <div class="aviso-legal">
-      <p><strong>Aviso legal:</strong> Los precios mostrados en OdontoPrecio son obtenidos automáticamente de los sitios web de cada distribuidora y tienen carácter informativo. Pueden no estar actualizados al momento de la consulta. OdontoPrecio no se responsabiliza por diferencias entre los precios mostrados y los precios finales de cada tienda. Siempre verificá el precio antes de realizar una compra. No tenemos ninguna relación comercial con las distribuidoras listadas — el orden en que aparecen es aleatorio.</p>
+      <p><strong>Aviso legal:</strong> Los precios mostrados en OdontoPrecio son obtenidos automáticamente de los sitios web de cada distribuidora y tienen carácter informativo. Pueden no estar actualizados al momento de la consulta. OdontoPrecio no se responsabiliza por diferencias entre los precios mostrados y los precios finales de cada tienda. Siempre verificá el precio antes de realizar una compra. No tenemos ninguna relación comercial con las distribuidoras listadas.</p>
     </div>
   </div>
 </div>
@@ -481,7 +481,6 @@ document.addEventListener('DOMContentLoaded', () => {
   actualizarBadges();
   cargarStats();
 
-  // Mezclar tiendas aleatoriamente
   const dd = document.getElementById('tiendas-dropdown');
   if (dd) {
     const chips = Array.from(dd.querySelectorAll('.tienda-chip'));
@@ -500,7 +499,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') { clearTimeout(searchTimer); const q = input.value.trim(); if (q.length >= 2) buscar(q); }
   });
 
-  // Cerrar dropdown de tiendas al hacer click afuera
   document.addEventListener('click', e => {
     const dd = document.getElementById('tiendas-dropdown');
     const btn = document.getElementById('btn-ver-tiendas');
@@ -527,7 +525,6 @@ function mostrarTab(tab) {
   document.getElementById('page-' + tab).classList.add('active');
   document.getElementById('btn-lista-hdr').classList.toggle('active', tab === 'lista');
   if (tab === 'lista') renderLista();
-  // GA tracking
   if (window.gtag) gtag('event', 'page_view', {page_title: tab});
 }
 
@@ -542,7 +539,6 @@ async function buscar(q) {
   document.getElementById('products-grid').innerHTML = '';
   document.getElementById('results-label').textContent = `Resultados para "${q}"`;
   document.getElementById('results-count').textContent = '';
-  // GA tracking
   if (window.gtag) gtag('event', 'search', {search_term: q});
   try {
     const r = await fetch(`/api/buscar?q=${encodeURIComponent(q)}`);
@@ -595,7 +591,6 @@ function renderProductos(prods) {
     </div>`;
   }).join('');
 
-  // Cargar historial de precios en background
   prods.forEach(p => cargarHistorial(p));
 }
 
@@ -656,59 +651,82 @@ function quitarItem(id) {
   renderLista();
 }
 
+// ── RENDER LISTA — FIX: usa Map para mantener orden estable al borrar ──
 function renderLista() {
   const contenido = document.getElementById('lista-contenido');
   const footer = document.getElementById('lista-footer');
   const metricas = document.getElementById('lista-metricas');
   const actions = document.getElementById('lista-actions');
+
   if (!lista.length) {
     contenido.innerHTML = `<div class="lista-vacia"><span class="lista-vacia-icon">🛒</span><h3>Tu lista está vacía</h3><p>Buscá productos y agregálos para armar tu pedido</p><button class="btn-ir-buscar" onclick="mostrarTab('buscar')">Ir a buscar →</button></div>`;
     footer.style.display = 'none'; metricas.style.display = 'none'; actions.style.display = 'none';
     document.getElementById('lista-sub').textContent = '0 productos · 0 distribuidoras';
     return;
   }
-  const grupos = {};
+
+  // FIX: Map garantiza orden de inserción, Object no
+  const gruposMap = new Map();
   lista.forEach(p => {
-    if (!grupos[p.tienda_slug]) grupos[p.tienda_slug] = {nombre:p.tienda_nombre,color:p.tienda_color,url_base:p.url?(()=>{try{return new URL(p.url).origin}catch{return '#'}})():'#',items:[]};
-    grupos[p.tienda_slug].items.push(p);
+    if (!gruposMap.has(p.tienda_slug)) {
+      gruposMap.set(p.tienda_slug, {
+        nombre: p.tienda_nombre,
+        color: p.tienda_color,
+        url_base: p.url ? (() => { try { return new URL(p.url).origin; } catch { return '#'; } })() : '#',
+        items: []
+      });
+    }
+    gruposMap.get(p.tienda_slug).items.push(p);
   });
+
   let total = 0;
-  const n = Object.keys(grupos).length;
-  const cards = Object.values(grupos).map(g => {
-    const sub = g.items.reduce((s,p) => s+(p.precio||0)*(p.cantidad||1), 0);
+  const n = gruposMap.size;
+
+  const cards = Array.from(gruposMap.values()).map(g => {
+    const sub = g.items.reduce((s, p) => s + (p.precio || 0) * (p.cantidad || 1), 0);
     total += sub;
     const items = g.items.map(p => {
       const imgHtml = p.imagen ? `<img class="item-img" src="${p.imagen}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='🦷'">` : '🦷';
-      const mult = (p.cantidad||1) > 1;
+      const mult = (p.cantidad || 1) > 1;
       return `<div class="lista-item">
         <div class="item-img-wrap">${imgHtml}</div>
         <div class="item-info">
           <div class="item-nombre" title="${esc(p.nombre)}">${esc(p.nombre)}</div>
-          <div class="item-precio">${fmt(p.precio)}${mult ? ` × ${p.cantidad} = <strong>${fmt((p.precio||0)*(p.cantidad||1))}</strong>` : ''}</div>
+          <div class="item-precio">${fmt(p.precio)}${mult ? ` × ${p.cantidad} = <strong>${fmt((p.precio || 0) * (p.cantidad || 1))}</strong>` : ''}</div>
         </div>
         <div class="item-controls">
           <div class="qty-wrap">
             <button class="qty-btn" onclick="cambiarCantidad('${p.id}',-1)">−</button>
-            <span class="qty-val">${p.cantidad||1}</span>
+            <span class="qty-val">${p.cantidad || 1}</span>
             <button class="qty-btn" onclick="cambiarCantidad('${p.id}',1)">+</button>
           </div>
           <button class="btn-quitar" onclick="quitarItem('${p.id}')" title="Quitar">×</button>
         </div>
       </div>`;
     }).join('');
+
     return `<div class="tienda-card">
-      <div class="tienda-card-hdr"><div class="tienda-card-nombre"><div class="tienda-card-dot" style="background:${g.color}"></div>${esc(g.nombre)}</div><div class="tienda-card-subtotal">${fmt(sub)}</div></div>
+      <div class="tienda-card-hdr">
+        <div class="tienda-card-nombre"><div class="tienda-card-dot" style="background:${g.color}"></div>${esc(g.nombre)}</div>
+        <div class="tienda-card-subtotal">${fmt(sub)}</div>
+      </div>
       ${items}
-      <div class="tienda-card-ftr"><span class="tienda-card-ftr-info">${g.items.length} producto${g.items.length!==1?'s':''}</span><a class="ir-tienda" href="${g.url_base}" target="_blank" rel="noopener">Ver tienda →</a></div>
+      <div class="tienda-card-ftr">
+        <span class="tienda-card-ftr-info">${g.items.length} producto${g.items.length !== 1 ? 's' : ''}</span>
+        <a class="ir-tienda" href="${g.url_base}" target="_blank" rel="noopener">Ver tienda →</a>
+      </div>
     </div>`;
   }).join('');
+
   contenido.innerHTML = `<div class="tiendas-grid">${cards}</div>`;
   document.getElementById('metrica-total').textContent = fmt(total);
   document.getElementById('metrica-tiendas').textContent = n;
   document.getElementById('metrica-productos').textContent = lista.length;
   document.getElementById('footer-total').textContent = fmt(total);
-  document.getElementById('lista-sub').textContent = `${lista.length} producto${lista.length!==1?'s':''} · ${n} distribuidora${n!==1?'s':''}`;
-  metricas.style.display = 'block'; footer.style.display = 'flex'; actions.style.display = 'flex';
+  document.getElementById('lista-sub').textContent = `${lista.length} producto${lista.length !== 1 ? 's' : ''} · ${n} distribuidora${n !== 1 ? 's' : ''}`;
+  metricas.style.display = 'block';
+  footer.style.display = 'flex';
+  actions.style.display = 'flex';
 }
 
 function limpiarLista() {
@@ -720,21 +738,26 @@ function limpiarLista() {
 
 function copiarResumen() {
   if (!lista.length) return;
-  const g = {};
-  lista.forEach(p => { if (!g[p.tienda_slug]) g[p.tienda_slug]={nombre:p.tienda_nombre,items:[]}; g[p.tienda_slug].items.push(p); });
+  const g = new Map();
+  lista.forEach(p => {
+    if (!g.has(p.tienda_slug)) g.set(p.tienda_slug, {nombre: p.tienda_nombre, items: []});
+    g.get(p.tienda_slug).items.push(p);
+  });
   let txt = '🦷 OdontoPrecio — Lista de compras\n' + '─'.repeat(36) + '\n\n';
   let total = 0;
-  Object.values(g).forEach(gr => {
-    const sub = gr.items.reduce((s,p)=>s+(p.precio||0)*(p.cantidad||1),0); total += sub;
+  Array.from(g.values()).forEach(gr => {
+    const sub = gr.items.reduce((s, p) => s + (p.precio || 0) * (p.cantidad || 1), 0);
+    total += sub;
     txt += `📦 ${gr.nombre}\n`;
-    gr.items.forEach(p => { txt += `   • ${p.nombre}${p.cantidad>1?` ×${p.cantidad}`:''} — ${fmt((p.precio||0)*(p.cantidad||1))}\n`; if(p.url) txt+=`     ${p.url}\n`; });
+    gr.items.forEach(p => {
+      txt += `   • ${p.nombre}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''} — ${fmt((p.precio || 0) * (p.cantidad || 1))}\n`;
+      if (p.url) txt += `     ${p.url}\n`;
+    });
     txt += `   Subtotal: ${fmt(sub)}\n\n`;
   });
   txt += '─'.repeat(36) + '\nTOTAL: ' + fmt(total);
   navigator.clipboard.writeText(txt).then(() => toast('📋 Resumen copiado'));
 }
-
-
 
 // ── REPORTE ──
 function abrirReporte(p) {
@@ -773,7 +796,6 @@ async function enviarReporte() {
   }
 }
 
-// Cerrar modal al hacer clic afuera
 document.getElementById('modal-reporte').addEventListener('click', e => {
   if (e.target === e.currentTarget) cerrarReporte();
 });
@@ -788,8 +810,8 @@ function actualizarBadges() {
   if (tb) { tb.textContent = n; tb.className = n ? 'tab-badge' : 'tab-badge empty'; }
 }
 function fmt(n) { if (!n) return '$0'; return '$' + Math.round(n).toLocaleString('es-AR'); }
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-function toast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
 async function cargarStats() {
   try {
     const r = await fetch('/api/stats');
