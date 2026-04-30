@@ -19,10 +19,6 @@ def get_productos():
 
 
 def _actualizar_si_es_necesario():
-    """
-    Corre el scraper en background si los datos tienen mas de 7 dias.
-    Se llama automaticamente al arrancar el servidor.
-    """
     import datetime
     try:
         from scraper import DB_PATH
@@ -30,7 +26,7 @@ def _actualizar_si_es_necesario():
             mod_time = os.path.getmtime(DB_PATH)
             edad_dias = (datetime.datetime.now().timestamp() - mod_time) / 86400
             if edad_dias < 2:
-                print(f"Datos actualizados hace {edad_dias:.1f} dias (menos de 2 dias) — no es necesario scrapear.")
+                print(f"Datos actualizados hace {edad_dias:.1f} dias — no es necesario scrapear.")
                 return
             print(f"Datos tienen {edad_dias:.1f} dias — actualizando precios...")
         else:
@@ -39,7 +35,6 @@ def _actualizar_si_es_necesario():
         def _run():
             nuevos = correr_scraper()
             _cache["productos"] = nuevos
-            # Guardar historial de precios
             try:
                 hist = guardar_historial(nuevos)
                 _cache["historial"] = hist
@@ -52,45 +47,104 @@ def _actualizar_si_es_necesario():
 
 
 # ─── Sinónimos odontológicos ───────────────────────────────────
-# Cada grupo: buscar cualquiera encuentra todos los demás
+# FIX: grupos más completos, especialmente endodoncia/gutapercha
 SINONIMOS = [
+    # Anestesia
     {"anestesia", "anescart", "carpule", "mepivacaina", "lidocaina",
      "articaina", "escandicaina", "scandicaine", "mepinor", "mepivastesin",
-     "xylestesin", "alphacaine", "ultracaine", "septocaine"},
+     "xylestesin", "alphacaine", "ultracaine", "septocaine", "mepicaton",
+     "novocaina", "prilocaina", "bupivacaina"},
+    # Composite / resina
     {"composite", "resina", "compomero", "filtek", "tetric", "charisma",
-     "estelite", "grandio", "gradia", "lumiglass", "restaurador"},
+     "estelite", "grandio", "gradia", "lumiglass", "restaurador",
+     "z350", "z250", "p60", "p90", "z100", "beautiful", "flow",
+     "microhibrido", "nanohíbrido", "nanohíbrida", "nanohibrida"},
+    # Adhesivo
     {"adhesivo", "bond", "primer", "single bond", "optibond", "excite",
-     "adper", "scotchbond", "gluma", "clearfil"},
+     "adper", "scotchbond", "gluma", "clearfil", "futurabond",
+     "ibond", "prime bond", "xeno", "syntac"},
+    # Cemento
     {"cemento", "ionomero", "ionómero", "glass ionomer", "ketac",
      "fuji", "vitremer", "vitrebond", "relyx", "rely x",
-     "maxcem", "multilink", "panavia", "variolink"},
-    {"endodoncia", "lima", "limas", "hipoclorito", "edta", "ledermix",
-     "gutapercha", "gutta", "conos", "irrigante",
-     "protaper", "waveone", "reciproc", "mtwo"},
+     "maxcem", "multilink", "panavia", "variolink", "smartcem",
+     "nexus", "resinoso", "ionómero vítreo", "ionómero vitreo"},
+    # Endodoncia — FIX: gutapercha con y sin espacio, conos, limas, etc.
+    {"endodoncia", "lima", "limas",
+     "gutapercha", "guta percha", "guttapercha", "guta", "conos",
+     "cono", "conos de gutapercha", "puntas de gutapercha",
+     "hipoclorito", "edta", "ledermix",
+     "irrigante", "irrigacion", "irrigación",
+     "protaper", "waveone", "wave one", "reciproc", "mtwo",
+     "k-file", "kfile", "h-file", "hfile", "hedstroem",
+     "adseal", "ah plus", "ah26", "sealapex", "tubli seal",
+     "obturacion", "obturación", "condensador", "spreader"},
+    # Blanqueamiento
     {"blanqueamiento", "blanqueador", "peroxido", "whitening",
-     "opalescence", "pola", "whiteness"},
-    {"impresion", "alginato", "silicona", "vinilpolisiloxano", "vps",
-     "putty", "zhermack", "president", "aquasil"},
+     "opalescence", "pola", "whiteness", "carbamida", "hidrogeno",
+     "blanquear"},
+    # Impresión
+    {"impresion", "impresión", "alginato", "silicona", "vinilpolisiloxano", "vps",
+     "putty", "zhermack", "president", "aquasil", "elite", "zetaplus",
+     "condensacion", "adicion", "polieter", "impregum"},
+    # Fresas
     {"fresa", "fresas", "turbina", "micromotor", "contraangulo",
-     "pieza de mano", "ultrasonido", "cureta"},
-    {"bracket", "brackets", "arco", "arcos", "ligadura", "banda", "tubo", "alambre"},
-    {"poste", "postes", "perno", "fibra de vidrio"},
-    {"sellador", "sellante", "fisuras", "helioseal", "clinpro"},
-    {"guante", "guantes", "barbijo", "bioseguridad"},
-    {"radiografia", "pelicula", "sensor", "placa radiografica"},
+     "pieza de mano", "ultrasonido", "cureta", "piedra",
+     "carbide", "diamantada", "tungsteno", "fisura"},
+    # Ortodoncia
+    {"bracket", "brackets", "arco", "arcos", "ligadura", "banda",
+     "tubo", "alambre", "resorte", "molar band", "mini tornillo",
+     "miniimplante", "elastico", "elasticos", "cadena elastomerica"},
+    # Postes / pernos
+    {"poste", "postes", "perno", "fibra de vidrio", "fibra", "muñon",
+     "retenedor", "prefabricado"},
+    # Sellantes
+    {"sellador", "sellante", "fisuras", "helioseal", "clinpro",
+     "delton", "fissurit", "concise"},
+    # Bioseguridad / descartables
+    {"guante", "guantes", "barbijo", "barbijos", "bioseguridad",
+     "descartable", "descartables", "babero", "baberos",
+     "eyector", "eyectores", "vaso", "vasos", "bolsa de esterilizacion",
+     "rollo de esterilizacion", "tyvek"},
+    # Radiología
+    {"radiografia", "radiografía", "pelicula", "película", "sensor",
+     "placa radiografica", "rx", "digora", "phospho", "fosforo",
+     "revelador", "fijador"},
+    # Yesos
+    {"yeso", "yesos", "escayola", "modelado", "piedra dental",
+     "vel mix", "fuji rock", "die keen"},
+    # Acrílico / prótesis
+    {"acrilico", "acrílico", "acrilicos", "resina acrilica",
+     "duralay", "meliodent", "paladon", "probase",
+     "protesis", "prótesis", "dentadura", "base acrilica"},
+    # Materiales de obturación temporal
+    {"obturacion temporal", "obturación temporal", "cavit", "ique",
+     "fermit", "coltosol", "eugenol", "oxido de zinc"},
 ]
 
-# Pre-normalizar sinónimos una sola vez al inicio (no en cada búsqueda)
-SINONIMOS_NORM = [
-    {re.sub(r"[-./ ]", " ", t).strip() for t in grupo}
-    for grupo in SINONIMOS
-]
+# Pre-normalizar sinónimos
+SINONIMOS_NORM = []
+for grupo in SINONIMOS:
+    grupo_norm = set()
+    for t in grupo:
+        t_norm = re.sub(r"[-./ ]", " ", t.lower()).strip()
+        grupo_norm.add(t_norm)
+        # También agregar versión sin espacios para "guta percha" → "gutapercha"
+        sin_espacios = t_norm.replace(" ", "")
+        if sin_espacios != t_norm:
+            grupo_norm.add(sin_espacios)
+    SINONIMOS_NORM.append(grupo_norm)
+
 
 def expandir_query(terminos_set):
     """Dado un set de términos normalizados, agrega sinónimos."""
     expandidos = set(terminos_set)
     for grupo in SINONIMOS_NORM:
-        if any(t in grupo or any(t in g for g in grupo) for t in terminos_set):
+        # FIX: match más flexible — basta con que un término sea substring de algo en el grupo
+        if any(
+            t == g or t in g or g in t
+            for t in terminos_set
+            for g in grupo
+        ):
             expandidos.update(grupo)
     return expandidos
 
@@ -98,12 +152,6 @@ def expandir_query(terminos_set):
 # ─── Motor de búsqueda ─────────────────────────────────────────
 
 def dividir_token(token):
-    """
-    Divide tokens compuestos en partes para búsqueda flexible.
-    z350xt -> ['z350', 'xt']
-    p60    -> ['p60']
-    3m     -> ['3m']   (empieza con número = unidad completa)
-    """
     if token and token[0].isdigit():
         return [token]
     partes = re.findall(r"[a-z]+|[0-9]+", token)
@@ -118,25 +166,15 @@ def dividir_token(token):
             i += 1
     return resultado
 
+STOPWORDS = {"a","b","c","m","x","g","u","n","v","s",
+             "de","el","la","lo","en","con","por","para","y","o","e"}
+
 def es_subtoken_valido(token):
-    if len(token) <= 1:
-        return False
-    if token in {"a", "b", "c", "m", "x", "g", "u", "n", "v", "s", "de", "el", "la", "lo", "en", "con", "por", "para"}:
-        return False
-    return True
+    return len(token) > 1 and token not in STOPWORDS
 
 def match_token(nombre, nombre_junto, token):
-    """
-    Retorna score de match:
-      200 = match exacto al inicio del nombre (más relevante)
-      100 = match exacto como palabra
-       50 = match en nombre sin espacios
-        1 = substring parcial (menos relevante)
-       -1 = no matchea
-    """
     patron = r"(?<![a-z0-9])" + re.escape(token) + r"(?![a-z0-9])"
     if re.search(patron, nombre):
-        # Bonus si aparece al inicio
         if nombre.startswith(token) or re.match(r"^" + re.escape(token) + r"(?![a-z0-9])", nombre):
             return 200
         return 100
@@ -147,11 +185,6 @@ def match_token(nombre, nombre_junto, token):
     return -1
 
 def calcular_score(nombre_norm, terminos_variantes):
-    """
-    Calcula relevancia. Retorna -1 si no matchean TODOS los términos.
-    Mayor score = más relevante.
-    Bonus cuando los términos aparecen juntos y en orden.
-    """
     nombre_junto = nombre_norm.replace(" ", "")
     score = 0
 
@@ -179,27 +212,20 @@ def calcular_score(nombre_norm, terminos_variantes):
             return -1
         score += mejor
 
-    # BONUS 1: todos los términos juntos en orden en el nombre
-    # Ej: "3m composite p60" matchea mejor si aparecen en ese orden
     tokens_base = []
     for v in terminos_variantes:
         t = v[0]
-        if isinstance(t, list):
-            tokens_base.append(t[0])
-        else:
-            tokens_base.append(t)
+        tokens_base.append(t[0] if isinstance(t, list) else t)
 
     if len(tokens_base) > 1:
         patron_orden = r".*".join(re.escape(t) for t in tokens_base)
         if re.search(patron_orden, nombre_norm) or re.search(patron_orden, nombre_junto):
-            score += 100  # Aparecen en el orden correcto
+            score += 100
 
-    # BONUS 2: el nombre empieza con el primer término
     if tokens_base and (nombre_norm.startswith(tokens_base[0]) or
         re.match(r"^" + re.escape(tokens_base[0]) + r"(?![a-z0-9])", nombre_norm)):
         score += 50
 
-    # BONUS 3: coincidencia exacta de frase completa
     frase = " ".join(tokens_base)
     if frase in nombre_norm:
         score += 200
@@ -218,6 +244,10 @@ def preparar_query(q):
         else:
             terminos_variantes.append([t])
     base_set = set(terminos_base)
+    # También agregar versión sin espacios del query completo (para "guta percha" → "gutapercha")
+    q_sin_espacios = q_norm.replace(" ", "")
+    if q_sin_espacios != q_norm:
+        base_set.add(q_sin_espacios)
     sinonimos_set = expandir_query(base_set) - base_set
     return terminos_variantes, sinonimos_set
 
@@ -235,7 +265,6 @@ def cargar_historial():
     return {}
 
 def guardar_historial(productos_nuevos):
-    """Compara precios nuevos con el historial y guarda cambios."""
     from datetime import datetime
     hist = cargar_historial()
     hoy = datetime.now().strftime("%Y-%m-%d")
@@ -245,10 +274,8 @@ def guardar_historial(productos_nuevos):
         precio = p["precio"]
         if pid not in hist:
             hist[pid] = []
-        # Solo guardar si el precio cambió respecto al último registro
         if not hist[pid] or hist[pid][-1]["precio"] != precio:
             hist[pid].append({"fecha": hoy, "precio": precio})
-            # Mantener solo últimos 90 días
             if len(hist[pid]) > 90:
                 hist[pid] = hist[pid][-90:]
             cambiaron += 1
@@ -257,7 +284,6 @@ def guardar_historial(productos_nuevos):
     print(f"Historial actualizado: {cambiaron} productos con cambios de precio.")
     return hist
 
-# Inicializar historial en cache
 _cache["historial"] = None
 
 def get_historial():
@@ -286,7 +312,6 @@ def guardar_reporte(producto_id, nombre, tienda, precio_actual, comentario, ip):
         "comentario": comentario[:200],
         "ip": ip[:20] if ip else ""
     })
-    # Mantener últimos 500 reportes
     reportes = reportes[-500:]
     with open(REPORTES_PATH, "w", encoding="utf-8") as f:
         json.dump(reportes, f, ensure_ascii=False, indent=2)
@@ -302,7 +327,6 @@ def index():
 def buscar():
     q = request.args.get("q", "").strip().lower()
 
-    # Limitar largo de query
     if len(q) < 2:
         return jsonify([])
     if len(q) > 100:
@@ -311,20 +335,18 @@ def buscar():
     productos = get_productos()
     terminos_variantes, sinonimos_set = preparar_query(q)
 
-    resultados_directos = []   # match con términos originales
-    resultados_sinonimos = []  # match solo por sinónimo
+    resultados_directos = []
+    resultados_sinonimos = []
 
     for p in productos:
         nombre = re.sub(r"[-./ ]", " ", p["nombre"].lower())
         nombre = re.sub(r" +", " ", nombre)
 
-        # Intentar match directo
         score = calcular_score(nombre, terminos_variantes)
         if score >= 0:
             resultados_directos.append((score, p))
             continue
 
-        # Intentar match por sinónimo
         if sinonimos_set:
             for sin in sinonimos_set:
                 nombre_junto = re.sub(r" ", "", nombre)
@@ -333,23 +355,26 @@ def buscar():
                     resultados_sinonimos.append((1, p))
                     break
 
-    # Ordenar cada grupo por precio
-    resultados_directos.sort(key=lambda x: (
-        -x[0],                                                    # mayor score primero
-        x[1]["precio"] if x[1]["precio"] > 0 else 999_999_999    # menor precio segundo
-    ))
+    # FIX ORDEN: ordenar por score desc, luego precio asc (sin precio va al final)
+    # Precio 0 = "Consultar" → siempre va después de los que tienen precio real
+    def sort_key(x):
+        score, p = x
+        precio = p["precio"]
+        tiene_precio = 1 if precio > 0 else 0
+        return (-score, -tiene_precio, precio if precio > 0 else 999_999_999)
+
+    resultados_directos.sort(key=sort_key)
     resultados_sinonimos.sort(key=lambda x: (
+        -1 if x[1]["precio"] > 0 else 0,  # con precio primero
         x[1]["precio"] if x[1]["precio"] > 0 else 999_999_999
     ))
 
-    # Directos primero, luego sinónimos, máximo 60 resultados
     combinados = resultados_directos + resultados_sinonimos
     return jsonify([p for _, p in combinados[:60]])
 
 
 @app.route("/api/actualizar", methods=["POST"])
 def actualizar():
-    """Dispara el scraper en background."""
     def _run():
         nuevos = correr_scraper()
         _cache["productos"] = nuevos
@@ -359,14 +384,12 @@ def actualizar():
 
 @app.route("/api/historial/<producto_id>")
 def historial_producto(producto_id):
-    """Devuelve el historial de precios de un producto."""
     hist = get_historial()
     datos = hist.get(producto_id, [])
     return jsonify(datos)
 
 @app.route("/api/reporte", methods=["POST"])
 def reporte():
-    """Guarda un reporte de precio incorrecto."""
     data = request.get_json(silent=True) or {}
     producto_id = str(data.get("id", ""))[:50]
     nombre = str(data.get("nombre", ""))[:200]
@@ -381,7 +404,6 @@ def reporte():
 
 @app.route("/admin/reportes")
 def ver_reportes():
-    """Descarga los reportes como Excel. Protegido con clave."""
     clave = request.args.get("clave", "")
     CLAVE_ADMIN = os.environ.get("ADMIN_CLAVE", "odonto2024")
     if clave != CLAVE_ADMIN:
@@ -391,11 +413,10 @@ def ver_reportes():
     try:
         import csv, io
         reportes = json.load(open(REPORTES_PATH, encoding="utf-8"))
-        # Generar CSV (compatible con Excel)
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(["Fecha", "Tienda", "Producto", "Precio actual", "Comentario"])
-        for r in reversed(reportes):  # más recientes primero
+        for r in reversed(reportes):
             writer.writerow([
                 r.get("fecha", ""),
                 r.get("tienda", ""),
@@ -403,7 +424,7 @@ def ver_reportes():
                 r.get("precio_actual", ""),
                 r.get("comentario", ""),
             ])
-        csv_data = "﻿" + output.getvalue()  # BOM para que Excel lo abra bien en español
+        csv_data = "\ufeff" + output.getvalue()
         from flask import Response
         return Response(
             csv_data,
@@ -423,11 +444,9 @@ def stats():
     return jsonify({"total": len(productos), "por_tienda": por_tienda})
 
 
-# Arrancar auto-actualizacion al iniciar (funciona tanto con gunicorn como python app.py)
 _actualizar_si_es_necesario()
 
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_ENV") != "production"
     print(f"\n🦷 OdontoPrecio arrancando en puerto {port}...")
