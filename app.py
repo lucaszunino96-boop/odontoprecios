@@ -14,11 +14,10 @@ _cache = {"productos": None, "historial": None, "nombres_norm": None}
 def get_productos():
     if _cache["productos"] is None:
         _cache["productos"] = cargar_productos()
-        _cache["nombres_norm"] = None  # resetear cache de nombres
+        _cache["nombres_norm"] = None
     return _cache["productos"]
 
 def get_nombres_norm():
-    """Cache de nombres normalizados para no recalcular en cada búsqueda."""
     if _cache["nombres_norm"] is None:
         productos = get_productos()
         _cache["nombres_norm"] = [
@@ -56,56 +55,64 @@ def _actualizar_si_es_necesario():
 
 
 # ─── BÚSQUEDA ─────────────────────────────────────────────────────────────────
-# Estrategia:
-#   1. Búsqueda exacta por tokens (todos los términos deben aparecer)
-#   2. Si hay pocos resultados (<10), complementa con rapidfuzz (partial_ratio + token_set_ratio)
-#   3. Ordena: con precio de menor a mayor, sin precio al final
-#   Esto cubre: variantes de nombre, errores de tipeo, sinónimos parciales
-
 STOPWORDS = {"de","el","la","lo","los","las","en","con","por","para","y","o","e","un","una","x"}
-MIN_FUZZY = 68  # umbral mínimo de similitud para rapidfuzz (0-100)
+MIN_FUZZY = 75
 
 def normalizar(texto):
     t = re.sub(r"[-./()\[\]]", " ", texto.lower())
     return re.sub(r" +", " ", t).strip()
 
 def busqueda_exacta(q_norm, productos, nombres_norm):
-    """Retorna productos donde TODOS los tokens del query aparecen en el nombre."""
+    """Todos los tokens del query deben aparecer en el nombre."""
     tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
     if not tokens:
         return []
     resultados = []
     for i, nombre in enumerate(nombres_norm):
         nombre_junto = nombre.replace(" ", "")
-        ok = True
-        for token in tokens:
-            patron = r"(?<![a-z0-9])" + re.escape(token) + r"(?![a-z0-9])"
-            if not re.search(patron, nombre) and token not in nombre_junto:
-                ok = False
-                break
-        if ok:
+        if all(
+            re.search(r"(?<![a-z0-9])" + re.escape(t) + r"(?![a-z0-9])", nombre)
+            or t in nombre_junto
+            for t in tokens
+        ):
             resultados.append(productos[i])
     return resultados
 
+def score_fuzzy(q_norm, nombre_norm):
+    """
+    Calcula similitud difusa solo si al menos un token del query
+    aparece en el nombre. Evita falsos positivos.
+    """
+    tokens_q = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 2]
+    if not tokens_q:
+        return 0
+    nombre_junto = nombre_norm.replace(" ", "")
+    # Rechazar si ningún token del query está presente en el nombre
+    alguno_presente = any(
+        any(tq in tn or tn in tq for tn in nombre_norm.split()) or tq in nombre_junto
+        for tq in tokens_q
+    )
+    if not alguno_presente:
+        return 0
+    return max(int(fuzz.partial_ratio(q_norm, nombre_norm)),
+               int(fuzz.token_set_ratio(q_norm, nombre_norm)))
+
 def busqueda_fuzzy(q_norm, productos, nombres_norm, excluir_ids=None):
-    """Búsqueda difusa con rapidfuzz. Complementa cuando la búsqueda exacta da pocos resultados."""
+    """Complementa la búsqueda exacta con resultados difusos."""
     excluir = excluir_ids or set()
     resultados = []
     for i, nombre in enumerate(nombres_norm):
         p = productos[i]
         if p["id"] in excluir:
             continue
-        # Combinar los dos scorers y tomar el mejor
-        s1 = fuzz.partial_ratio(q_norm, nombre)
-        s2 = fuzz.token_set_ratio(q_norm, nombre)
-        score = max(s1, s2)
-        if score >= MIN_FUZZY:
-            resultados.append((score, p))
+        s = score_fuzzy(q_norm, nombre)
+        if s >= MIN_FUZZY:
+            resultados.append((s, p))
     resultados.sort(key=lambda x: -x[0])
     return [p for _, p in resultados]
 
 def sort_por_precio(productos):
-    """Con precio de menor a mayor primero, sin precio al final."""
+    """Menor precio primero, sin precio al final."""
     con = sorted([p for p in productos if p["precio"] > 0], key=lambda p: p["precio"])
     sin = [p for p in productos if p["precio"] == 0]
     return con + sin
@@ -194,18 +201,18 @@ def buscar():
     productos = get_productos()
     nombres_norm = get_nombres_norm()
 
-    # Paso 1: búsqueda exacta
+    # Paso 1: búsqueda exacta (todos los tokens presentes)
     exactos = busqueda_exacta(q_norm, productos, nombres_norm)
 
-    # Paso 2: si hay menos de 10 resultados, complementar con fuzzy
+    # Paso 2: si hay menos de 10, complementar con fuzzy
     fuzzy = []
     if len(exactos) < 10:
         ids_exactos = {p["id"] for p in exactos}
         fuzzy = busqueda_fuzzy(q_norm, productos, nombres_norm, excluir_ids=ids_exactos)
 
-    # Paso 3: ordenar cada grupo por precio y combinar
-    resultado = sort_por_precio(exactos) + sort_por_precio(fuzzy)
-    return jsonify(resultado[:60])
+    # Paso 3: ordenar TODO junto por precio (no separado)
+    todos = exactos + fuzzy
+    return jsonify(sort_por_precio(todos)[:60])
 
 @app.route("/api/actualizar", methods=["POST"])
 def actualizar():
