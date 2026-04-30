@@ -43,6 +43,9 @@ TIENDAS = [
         "tipo":"prestashop","sitemap":None,"color":"#be185d",
         "categorias":["30-instrumental","31-operatoria","32-equipamiento","33-estetica","35-protesis","36-endodoncia","37-ortodoncia","38-cirugia","39-periodoncia","40-rayos","41-laboratorio","42-odontopediatria"],
     },
+    # ── SHOPIFY (ejemplo — agregar tiendas reales aquí) ──
+    # Para agregar una tienda Shopify: tipo="shopify", url_base="https://tienda.com"
+    # El scraper llama automáticamente a /products.json?limit=250&page=N
     # ── WOOCOMMERCE PAGINADO ──
     {"slug":"orthodent","nombre":"Orthodent","url_base":"https://www.orthodent.com.ar","tipo":"woocommerce_paginado","sitemap":None,"url_productos":"https://www.orthodent.com.ar/todos-los-productos/","color":"#457b9d"},
     # ── CARRIZO DENTAL ──
@@ -199,22 +202,73 @@ MAX_WORKERS = 5
 DELAY = 0.05
 
 # ─── HTTP ─────────────────────────────────────────────────────────────────────
-def fetch(url, timeout=20, reintentos=2):
-    hdrs = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "es-AR,es;q=0.9",
-    }
+import random
+
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+]
+
+CURL_PROFILES = ["chrome124", "chrome123", "chrome110", "firefox117", "safari17_0"]
+
+def fetch(url, timeout=20, reintentos=3):
+    """
+    HTTP fetch con:
+    - User agents rotativos
+    - Detección de bloqueo (403/429/CAPTCHA)
+    - Retry con backoff exponencial
+    """
     ultimo_error = None
     for intento in range(reintentos + 1):
+        ua = random.choice(USER_AGENTS)
+        hdrs = {
+            "User-Agent": ua,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "es-AR,es;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+        }
         try:
             if USE_CURL:
-                return requests.get(url, impersonate="chrome124", timeout=timeout)
-            return requests.get(url, headers=hdrs, timeout=timeout)
+                perfil = random.choice(CURL_PROFILES)
+                r = requests.get(url, impersonate=perfil, timeout=timeout)
+            else:
+                r = requests.get(url, headers=hdrs, timeout=timeout)
+
+            # Detectar bloqueos explícitos
+            if r.status_code == 429:
+                wait = min(60, 5 * (2 ** intento))
+                print(f"  ⚠ 429 Rate limit en {url[:60]} — esperando {wait}s")
+                time.sleep(wait)
+                continue
+            if r.status_code == 403:
+                print(f"  ⚠ 403 Bloqueado en {url[:60]}")
+                if intento < reintentos:
+                    time.sleep(3 * (intento + 1))
+                    continue
+                return r  # devolver igualmente para que el caller decida
+            if r.status_code == 503:
+                wait = 10 * (intento + 1)
+                print(f"  ⚠ 503 Servicio no disponible en {url[:60]} — esperando {wait}s")
+                time.sleep(wait)
+                continue
+
+            # Detectar CAPTCHA o página vacía
+            if r.status_code == 200 and len(r.text) < 200:
+                print(f"  ⚠ Respuesta sospechosamente corta ({len(r.text)} bytes) en {url[:60]}")
+
+            return r
+
         except Exception as e:
             ultimo_error = e
             if intento < reintentos:
-                time.sleep(1)
+                wait = 2 ** intento  # backoff exponencial: 1s, 2s, 4s
+                time.sleep(wait)
     raise ultimo_error
 
 # ─── UTILS ────────────────────────────────────────────────────────────────────
@@ -262,7 +316,7 @@ def _parsear_sitemap(texto, filtro):
     locs = re.findall(r'<loc>(https?://[^<]+)</loc>', texto)
     lastmods = re.findall(r'<lastmod>([^<]+)</lastmod>', texto)
     if not locs:
-        for parser in ["xml", "html.parser"]:
+        for parser in ["xml", "lxml"]:
             soup = BeautifulSoup(texto, parser)
             locs = [l.text for l in soup.find_all("loc")]
             lastmods = [l.text for l in soup.find_all("lastmod")]
@@ -317,7 +371,7 @@ def scrape_producto_tiendanube(url, tienda):
     try:
         r = fetch(url, timeout=15)
         if r.status_code != 200: return None
-        soup = BeautifulSoup(r.text, "html.parser")
+        soup = BeautifulSoup(r.text, "lxml")
         sin_stock = soup.select_one(".js-buy-button[disabled], .buy-button[disabled]")
         if sin_stock: return None
         nombre_el = soup.select_one(".js-item-name, .product-name, h1.product-name, h1")
@@ -339,7 +393,7 @@ def scrape_producto_woocommerce(url, tienda):
     try:
         r = fetch(url, timeout=15)
         if r.status_code != 200: return None
-        soup = BeautifulSoup(r.text, "html.parser")
+        soup = BeautifulSoup(r.text, "lxml")
         if soup.select_one(".out-of-stock, p.stock.out-of-stock"): return None
 
         nombre_el = soup.select_one("h1.product_title, h1.entry-title, h1")
@@ -415,7 +469,7 @@ def scrape_producto_prestashop(url, tienda):
     try:
         r = fetch(url, timeout=15)
         if r.status_code != 200: return None
-        soup = BeautifulSoup(r.text, "html.parser")
+        soup = BeautifulSoup(r.text, "lxml")
         avail_el = soup.select_one(".js-product-availability, #product-availability")
         if avail_el and any(w in avail_el.get_text().lower() for w in ["fuera de stock", "sin stock", "agotado"]): return None
         nombre_el = soup.select_one("h1.product-detail-name, h1[itemprop='name'], h1")
@@ -439,7 +493,7 @@ def scrape_con_sitemap(tienda, cache_existente=None):
     Solo visita las URLs nuevas o modificadas recientemente.
     """
     from datetime import datetime, timezone
-    UMBRAL_DIAS = 2  # si lastmod > N días, reutilizar precio existente
+    UMBRAL_DIAS = 1  # precios en Argentina cambian diariamente
 
     print(f"  Leyendo sitemap...")
     pares = obtener_urls_sitemap(tienda["sitemap"], tienda["filtro_sitemap"])
@@ -510,6 +564,59 @@ def scrape_con_sitemap(tienda, cache_existente=None):
 
     return productos_nuevos + productos_reutilizados
 
+# ─── MOTOR SHOPIFY ───────────────────────────────────────────────────────────
+def scrape_shopify(tienda):
+    """
+    Shopify expone /products.json con precio, stock, variantes — sin scraping HTML.
+    Mucho más rápido y confiable que parsear páginas.
+    """
+    productos = []
+    page = 1
+    while True:
+        url = f"{tienda['url_base']}/products.json?limit=250&page={page}"
+        try:
+            r = fetch(url, timeout=20)
+            if r.status_code != 200:
+                break
+            data = r.json()
+            items = data.get("products", [])
+            if not items:
+                break
+            print(f"  Pág {page}: {len(items)} productos")
+            for item in items:
+                nombre = item.get("title", "").strip()
+                if not nombre:
+                    continue
+                # Tomar el precio mínimo entre variantes disponibles
+                variantes = item.get("variants", [])
+                precios = []
+                for v in variantes:
+                    if v.get("available", True):
+                        try:
+                            precios.append(float(v.get("price", 0)))
+                        except (ValueError, TypeError):
+                            pass
+                if not precios:
+                    continue
+                precio = min(precios)
+                if precio <= 0:
+                    continue
+                # URL del producto
+                handle = item.get("handle", "")
+                url_prod = f"{tienda['url_base']}/products/{handle}" if handle else tienda['url_base']
+                # Imagen
+                imagen = ""
+                imagenes = item.get("images", [])
+                if imagenes:
+                    imagen = imagenes[0].get("src", "")
+                productos.append(hacer_producto(tienda, nombre, precio, url_prod, imagen))
+            page += 1
+            time.sleep(DELAY)
+        except Exception as e:
+            print(f"  ! Shopify pág {page}: {e}")
+            break
+    return productos
+
 # ─── MOTOR PAGINADO WOOCOMMERCE ───────────────────────────────────────────────
 def scrape_paginado_woocommerce(tienda):
     productos, page = [], 1
@@ -519,7 +626,7 @@ def scrape_paginado_woocommerce(tienda):
         try:
             r = fetch(url, timeout=15)
             if r.status_code != 200: break
-            soup = BeautifulSoup(r.text, "html.parser")
+            soup = BeautifulSoup(r.text, "lxml")
             items = soup.select("li.product, article.product")
             if not items: break
             urls_pagina = []
@@ -552,7 +659,7 @@ def scrape_categorias_prestashop(tienda):
             try:
                 r = fetch(url, timeout=15)
                 if r.status_code != 200: break
-                soup = BeautifulSoup(r.text, "html.parser")
+                soup = BeautifulSoup(r.text, "lxml")
                 items = soup.select(".js-product, article.product-miniature")
                 if not items: break
                 for item in items:
@@ -580,7 +687,7 @@ def scrape_carrizo(tienda):
         try:
             r = fetch(cat_url, timeout=15)
             if r.status_code != 200: continue
-            soup = BeautifulSoup(r.text, "html.parser")
+            soup = BeautifulSoup(r.text, "lxml")
             prod_links = soup.select("a[href*='cod_articulo']")
             urls_cat = []
             for link in prod_links:
@@ -603,7 +710,7 @@ def _scrape_producto_carrizo(url, tienda):
     try:
         r = fetch(url, timeout=15)
         if r.status_code != 200: return None
-        soup = BeautifulSoup(r.text, "html.parser")
+        soup = BeautifulSoup(r.text, "lxml")
         nombre_el = soup.select_one("h1, .producto-nombre, .nombre-articulo, [class*='titulo']")
         nombre = nombre_el.get_text(strip=True) if nombre_el else ""
         if not nombre:
@@ -638,7 +745,7 @@ def scrape_dentalab(tienda):
             try:
                 r = fetch(url, timeout=15)
                 if r.status_code != 200: break
-                soup = BeautifulSoup(r.text, "html.parser")
+                soup = BeautifulSoup(r.text, "lxml")
                 prod_links = soup.select(f"a[href*='/productos/{cat_nombre}/']")
                 prod_links = [a for a in prod_links
                              if a.get("href","").endswith(".html")
@@ -669,7 +776,7 @@ def _scrape_producto_dentalab(url, tienda):
     try:
         r = fetch(url, timeout=15)
         if r.status_code != 200: return None
-        soup = BeautifulSoup(r.text, "html.parser")
+        soup = BeautifulSoup(r.text, "lxml")
         nombre_el = soup.select_one("h1, .product-title, [itemprop='name']")
         nombre = nombre_el.get_text(strip=True) if nombre_el else ""
         if not nombre:
@@ -703,7 +810,7 @@ def scrape_odontostore(tienda):
             try:
                 r = fetch(url, timeout=15)
                 if r.status_code != 200: break
-                soup = BeautifulSoup(r.text, "html.parser")
+                soup = BeautifulSoup(r.text, "lxml")
                 items = soup.select("[class*='product'], [class*='item-prod'], .card")
                 if not items and page > 1: break
                 encontro_nuevos = False
@@ -744,7 +851,7 @@ def scrape_cedent(tienda):
             try:
                 r = fetch(url, timeout=15)
                 if r.status_code != 200: break
-                soup = BeautifulSoup(r.text, "html.parser")
+                soup = BeautifulSoup(r.text, "lxml")
                 prod_cards = soup.select("article.product_item, .o_wsale_product_grid_wrapper .o_wsale_product_information, div[itemtype*='Product']")
                 if not prod_cards:
                     prod_cards = soup.select(".js_product, [data-product_id]")
