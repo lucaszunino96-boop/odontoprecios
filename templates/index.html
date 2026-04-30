@@ -519,6 +519,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btn) btn.textContent = 'Ver cuáles →';
     }
   });
+
+  // FIX: event listener para paginación con data-offset
+  document.getElementById('paginacion').addEventListener('click', e => {
+    const btn = e.target.closest('[data-offset]');
+    if (btn && !btn.disabled) {
+      buscar(queryActual, parseInt(btn.dataset.offset));
+    }
+  });
 });
 
 // ── TIENDAS ──
@@ -581,19 +589,17 @@ function renderPaginacion(offset, total) {
   if (totalPags <= 1) { pag.innerHTML = ''; return; }
   const actual = Math.floor(offset / LIMIT);
   let html = '';
-  // Anterior
-  html += `<button class="pag-btn" onclick="buscar('${esc(queryActual)}',${Math.max(0,(actual-1)*LIMIT)})" ${actual===0?'disabled':''}>← Ant</button>`;
-  // Páginas
+  // FIX: usar data-offset en lugar de string en onclick (evita problemas con comillas)
+  html += `<button class="pag-btn" data-offset="${Math.max(0,(actual-1)*LIMIT)}" ${actual===0?'disabled':''}>← Ant</button>`;
   const delta = 2;
   for (let i = 0; i < totalPags; i++) {
     if (i === 0 || i === totalPags-1 || (i >= actual-delta && i <= actual+delta)) {
-      html += `<button class="pag-btn ${i===actual?'active':''}" onclick="buscar('${esc(queryActual)}',${i*LIMIT})">${i+1}</button>`;
+      html += `<button class="pag-btn ${i===actual?'active':''}" data-offset="${i*LIMIT}">${i+1}</button>`;
     } else if (i === actual-delta-1 || i === actual+delta+1) {
       html += `<span class="pag-info">…</span>`;
     }
   }
-  // Siguiente
-  html += `<button class="pag-btn" onclick="buscar('${esc(queryActual)}',${(actual+1)*LIMIT})" ${actual===totalPags-1?'disabled':''}>Sig →</button>`;
+  html += `<button class="pag-btn" data-offset="${(actual+1)*LIMIT}" ${actual===totalPags-1?'disabled':''}>Sig →</button>`;
   pag.innerHTML = html;
 }
 
@@ -604,10 +610,14 @@ function mostrarVacio() {
 }
 
 // ── RENDER PRODUCTOS ──
+const _prodMap = {}; // FIX: mapa en memoria para evitar XSS con apostrofes en nombres
+
 function renderProductos(prods) {
-  const ids = lista.map(i => i.id);
+  const ids = new Set(lista.map(i => i.id));
+  // Guardar en mapa para acceso seguro desde onclick
+  prods.forEach(p => { _prodMap[p.id] = p; });
   document.getElementById('products-grid').innerHTML = prods.map((p, i) => {
-    const enLista = ids.includes(p.id);
+    const enLista = ids.has(p.id);
     const imgHtml = p.imagen ? `<img class="prod-img" src="${p.imagen}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='🦷'">` : '🦷';
     return `<div class="product-card" style="animation-delay:${i*30}ms">
       <div class="prod-img-wrap">${imgHtml}</div>
@@ -622,10 +632,10 @@ function renderProductos(prods) {
       <div class="prod-right">
         <div class="prod-precio">${esc(p.precio_fmt)}</div>
         <div class="prod-actions">
-          <button class="btn-agregar ${enLista ? 'agregado' : ''}" id="btn-${p.id}" onclick='toggleLista(${JSON.stringify(p).replace(/"/g,"&quot;")})'>${enLista ? '✓ En lista' : '+ Agregar'}</button>
+          <button class="btn-agregar ${enLista ? 'agregado' : ''}" id="btn-${p.id}" data-pid="${esc(p.id)}" onclick="toggleListaById(this.dataset.pid)">${enLista ? '✓ En lista' : '+ Agregar'}</button>
           <div class="prod-links">
             ${p.url ? `<a href="${p.url}" target="_blank" rel="noopener" class="btn-ver">Ver tienda →</a>` : ''}
-            <button class="btn-reportar" onclick='abrirReporte(${JSON.stringify(p).replace(/"/g,"&quot;")})'>⚑ Reportar precio</button>
+            <button class="btn-reportar" data-pid="${esc(p.id)}" onclick="abrirReporteById(this.dataset.pid)">⚑ Reportar precio</button>
           </div>
         </div>
       </div>
@@ -634,6 +644,10 @@ function renderProductos(prods) {
 
   prods.forEach(p => cargarHistorial(p));
 }
+
+// FIX: wrappers que usan _prodMap en lugar de JSON inline en onclick
+function toggleListaById(id) { const p = _prodMap[id]; if (p) toggleLista(p); }
+function abrirReporteById(id) { const p = _prodMap[id]; if (p) abrirReporte(p); }
 
 // ── HISTORIAL ──
 async function cargarHistorial(p) {
@@ -854,8 +868,12 @@ document.getElementById('modal-reporte').addEventListener('click', e => {
 
 // ── UTILS ──
 function guardarLista() {
-  localStorage.setItem('odontoprecio_lista', JSON.stringify(lista));
-  localStorage.setItem('odontoprecio_orden_tiendas', JSON.stringify(ordenTiendas));
+  try {
+    localStorage.setItem('odontoprecio_lista', JSON.stringify(lista));
+    localStorage.setItem('odontoprecio_orden_tiendas', JSON.stringify(ordenTiendas));
+  } catch(e) {
+    console.warn('localStorage lleno:', e);
+  }
 }
 function actualizarBadges() {
   const n = lista.length;
