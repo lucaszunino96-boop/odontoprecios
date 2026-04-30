@@ -210,9 +210,12 @@ def buscar():
         ids_exactos = {p["id"] for p in exactos}
         fuzzy = busqueda_fuzzy(q_norm, productos, nombres_norm, excluir_ids=ids_exactos)
 
-    # Paso 3: ordenar TODO junto por precio (no separado)
-    todos = exactos + fuzzy
-    return jsonify(sort_por_precio(todos)[:60])
+    # Paso 3: ordenar TODO junto por precio
+    todos = sort_por_precio(exactos + fuzzy)
+    total = len(todos)
+    offset = max(0, int(request.args.get("offset", 0)))
+    limit = 30
+    return jsonify({"resultados": todos[offset:offset+limit], "total": total, "offset": offset, "limit": limit})
 
 @app.route("/api/actualizar", methods=["POST"])
 def actualizar():
