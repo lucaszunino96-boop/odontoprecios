@@ -4,3 +4,4 @@ beautifulsoup4
 lxml
 curl_cffi
 gunicorn
+rapidfuzz
