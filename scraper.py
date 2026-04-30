@@ -121,31 +121,75 @@ TIENDAS = [
         "slug":"cedent","nombre":"Cedent","url_base":"https://www.cedent.com.ar",
         "tipo":"cedent","sitemap":None,"color":"#7c3aed",
         "categorias_urls":[
+            # Anestesias
             "/shop/category/anestesias-y-agujas-53",
-            "/shop/category/anestesias-169",
-            "/shop/category/carpule-170",
-            "/shop/category/agujas-172",
-            "/shop/category/descartadores-173",
+            "/shop/category/anestesias-y-agujas-anestesias-408",
+            "/shop/category/anestesias-y-agujas-carpule-411",
+            "/shop/category/anestesias-y-agujas-agujas-69",
+            "/shop/category/anestesias-y-agujas-descartadores-407",
+            # Bioseguridad
             "/shop/category/bioseguridad-402",
+            # Cementos
             "/shop/category/cementos-55",
+            "/shop/category/cementos-ionomeros-172",
+            "/shop/category/cementos-resinosos-y-duales-439",
+            "/shop/category/cementos-endodonticos-437",
+            # Cirugía
             "/shop/category/cirugia-y-perio-56",
+            # Descartables
             "/shop/category/descartables-57",
+            # Endodoncia - raíz y subcategorías
             "/shop/category/endodoncia-58",
+            "/shop/category/endodoncia-conos-gutapercha-417",
+            "/shop/category/endodoncia-conos-papel-416",
+            "/shop/category/endodoncia-limas-manuales-limas-h-425",
+            "/shop/category/endodoncia-limas-manuales-limas-k-424",
+            "/shop/category/endodoncia-limas-manuales-limas-niti-426",
+            "/shop/category/endodoncia-limas-rotatorias-limas-protaper-428",
+            "/shop/category/endodoncia-limas-rotatorias-limas-waveone-429",
+            "/shop/category/endodoncia-limas-rotatorias-limas-reciprocantes-430",
+            "/shop/category/endodoncia-limas-rotatorias-limas-mtwo-432",
+            "/shop/category/endodoncia-medicamentos-y-limpieza-436",
+            "/shop/category/endodoncia-cementos-endodonticos-435",
+            # Equipamiento
             "/shop/category/equipamiento-59",
+            # Estética
             "/shop/category/estetica-blanqueamiento-54",
-            "/shop/category/fresas-piedras-174",
-            "/shop/category/higiene-bucal-175",
-            "/shop/category/impresion-62",
-            "/shop/category/instrumental-60",
-            "/shop/category/laboratorio-61",
+            # Fresas
+            "/shop/category/fresas-piedras-539",
+            "/shop/category/fresas-piedras-fresas-165",
+            "/shop/category/fresas-piedras-piedras-166",
+            # Higiene
+            "/shop/category/higiene-bucal-395",
+            # Implantología
+            "/shop/category/implantologia-60",
+            # Impresión
+            "/shop/category/impresion-540",
+            # Instrumental
+            "/shop/category/instrumental-61",
+            # Laboratorio
+            "/shop/category/laboratorio-4",
+            # Operatoria
+            "/shop/category/operatoria-y-restauracion-63",
             "/shop/category/operatoria-y-restauracion-adhesivos-168",
             "/shop/category/operatoria-y-restauracion-composites-171",
-            "/shop/category/operatoria-y-restauracion-63",
-            "/shop/category/ortodoncia-177",
-            "/shop/category/protesis-64",
-            "/shop/category/radiologia-65",
-            "/shop/category/yesos-66",
-            "/shop/category/estudiantes-178",
+            "/shop/category/operatoria-y-restauracion-selladores-173",
+            "/shop/category/operatoria-y-restauracion-acidos-grabadores-167",
+            # Ortodoncia
+            "/shop/category/ortodoncia-64",
+            "/shop/category/ortodoncia-brackets-177",
+            "/shop/category/ortodoncia-bandas-molares-176",
+            "/shop/category/ortodoncia-arcos-175",
+            "/shop/category/ortodoncia-elastomeros-178",
+            "/shop/category/ortodoncia-tubos-183",
+            # Prótesis
+            "/shop/category/protesis-66",
+            "/shop/category/protesis-postes-191",
+            "/shop/category/protesis-acrilicos-y-ceras-187",
+            # Radiología
+            "/shop/category/radiologia-67",
+            # Yesos
+            "/shop/category/impresion-yesos-195",
         ],
     },
 ]
