@@ -185,15 +185,38 @@ def busqueda_exacta(q_norm, productos, nombres_norm):
             if all(p.search(nombre) or tokens[j] in nombre_junto for j, p in enumerate(patrones)):
                 resultados.append(productos[i])
 
-    # Filtro duro de marca: si el query tiene marca, solo devolver productos con esa marca
+    # Filtro duro de marca
     if marcas_en_query:
         def tiene_marca(p):
             n = normalizar(p["nombre"])
             return any(m in n or m in n.replace(" ","") for m in marcas_en_query)
-        resultados_con_marca = [p for p in resultados if tiene_marca(p)]
-        # Solo aplicar el filtro si hay resultados — si no, devolver todo (evitar cero resultados)
-        if resultados_con_marca:
-            return resultados_con_marca
+        con_marca = [p for p in resultados if tiene_marca(p)]
+        if con_marca:
+            resultados = con_marca
+
+    # Filtro duro de modelo: si el query tiene modelo (z350, p60, etc.)
+    # descartar productos con modelo DIFERENTE
+    q_attrs_local = _extraer_atributos(" ".join(tokens))
+    modelo_q = q_attrs_local.get("modelo")
+    if modelo_q and len(modelo_q) >= 3:
+        raiz_q = re.sub(r'^[a-z]+', '', modelo_q)
+        prefijo_q = re.sub(r'[a-z]+$', '', modelo_q)
+
+        def modelo_ok(p):
+            pa = _extraer_atributos(p["nombre"])
+            mp = pa.get("modelo")
+            if mp is None:
+                pn = normalizar(p["nombre"])
+                return modelo_q in pn or raiz_q in pn
+            raiz_p = re.sub(r'^[a-z]+', '', mp)
+            prefijo_p = re.sub(r'[a-z]+$', '', mp)
+            return (mp == modelo_q or
+                    mp.startswith(prefijo_q) or
+                    modelo_q.startswith(prefijo_p))
+
+        con_modelo = [p for p in resultados if modelo_ok(p)]
+        if con_modelo:
+            resultados = con_modelo
 
     return resultados
 
@@ -729,7 +752,8 @@ def compra_inteligente():
                         nuevos |= _indice[key]
             candidatos_idx |= nuevos
 
-        # Si hay marcas en el query, aplicar filtro duro de marca
+        # ── FILTRO DURO DE MARCA ──
+        # Si el query contiene una marca conocida, solo candidatos con esa marca
         marcas_en_query = [t for t in tokens if t in _MARCAS]
         if marcas_en_query:
             idx_con_marca = set()
@@ -741,23 +765,43 @@ def compra_inteligente():
             if idx_con_marca:
                 candidatos_idx = candidatos_idx & idx_con_marca if candidatos_idx else idx_con_marca
 
-        # Si hay tokens muy específicos (modelo alfanumérico), filtrar para que
-        # al menos uno esté presente
-        tokens_especificos = [t for t in tokens_ordenados
-                               if (len(t) >= 4 or re.search(r'[0-9]', t))
-                               and t not in _MARCAS]
-        if tokens_especificos and len(candidatos_idx) > 500:
-            idx_especificos = set()
-            for t in tokens_especificos[:3]:
-                stem = stemming_basico(t)
-                if t in _indice: idx_especificos |= _indice[t]
-                if stem in _indice: idx_especificos |= _indice[stem]
-                if len(t) >= 3:
-                    for key in _indice:
-                        if key.startswith(t) and not key.startswith("__sin__"):
-                            idx_especificos |= _indice[key]
-            if idx_especificos:
-                candidatos_idx = idx_especificos
+        # ── FILTRO DURO DE MODELO ──
+        # Si el query tiene un modelo alfanumérico (z350, p60, z250, etc.)
+        # DESCARTAR cualquier candidato que tenga un modelo DIFERENTE en su nombre.
+        # Z350 ≠ Z250 ≠ P60 — no son "similares", son productos distintos.
+        modelo_query = q_attrs.get("modelo")
+        if modelo_query and len(modelo_query) >= 3:
+            # Extraer raíz numérica del modelo (z350 → 350, p60 → 60)
+            raiz_query = re.sub(r'^[a-z]+', '', modelo_query)  # "350" de "z350"
+
+            def modelo_compatible(idx_prod):
+                """Devuelve True si el producto es compatible con el modelo del query."""
+                p = productos[idx_prod]
+                p_attrs = _extraer_atributos(p["nombre"])
+                modelo_prod = p_attrs.get("modelo")
+
+                if modelo_prod is None:
+                    # Sin modelo en nombre → puede ser variante de tienda (ej: "P60 POSTERIORES")
+                    # Solo incluir si tiene algún token del modelo en el nombre
+                    p_norm = nombres_norm[idx_prod]
+                    return modelo_query in p_norm or raiz_query in p_norm
+
+                # Tiene modelo → debe coincidir exactamente o ser compatible
+                # Compatible: z350xt matchea z350 (xt es sufijo de versión)
+                raiz_prod = re.sub(r'^[a-z]+', '', modelo_prod)
+                prefijo_query = re.sub(r'[a-z]+$', '', modelo_query)  # "z350" de "z350xt"
+                prefijo_prod = re.sub(r'[a-z]+$', '', modelo_prod)
+
+                return (
+                    modelo_prod == modelo_query or          # exacto
+                    modelo_prod.startswith(prefijo_query) or # z350 matchea z350xt
+                    modelo_query.startswith(prefijo_prod)    # z350xt matchea z350
+                )
+
+            candidatos_filtrados = {i for i in candidatos_idx if modelo_compatible(i)}
+            # Solo aplicar si hay resultados — si no, mantener todos (evitar cero)
+            if candidatos_filtrados:
+                candidatos_idx = candidatos_filtrados
 
         # Fallback si el índice no encontró nada
         if not candidatos_idx:
