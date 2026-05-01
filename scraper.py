@@ -47,7 +47,7 @@ TIENDAS = [
     # Para agregar una tienda Shopify: tipo="shopify", url_base="https://tienda.com"
     # El scraper llama automáticamente a /products.json?limit=250&page=N
     # ── WOOCOMMERCE PAGINADO ──
-    {"slug":"orthodent","nombre":"Orthodent","url_base":"https://www.orthodent.com.ar","tipo":"woocommerce_paginado","sitemap":None,"url_productos":"https://www.orthodent.com.ar/todos-los-productos/","color":"#457b9d"},
+    {"slug":"orthodent","nombre":"Orthodent","url_base":"https://www.orthodent.com.ar","tipo":"woocommerce","sitemap":"https://www.orthodent.com.ar/wp-sitemap-posts-product-1.xml","filtro_sitemap":"/producto/","color":"#457b9d"},
     # ── CARRIZO DENTAL ──
     {
         "slug":"carrizo","nombre":"Carrizo Dental","url_base":"https://carrizodental.com",
@@ -89,7 +89,7 @@ TIENDAS = [
             "/productos/var-varios.html",
         ],
     },
-    # ── ODONTOSTORE ──
+    # ── ODONTOSTORE (Joomla + HikaShop) ──
     {
         "slug":"odontostore","nombre":"Odontostore","url_base":"https://www.odontostore.com",
         "tipo":"odontostore","sitemap":None,"color":"#16a34a",
@@ -805,117 +805,107 @@ def _scrape_producto_dentalab(url, tienda):
 
 # ─── MOTOR ODONTOSTORE ────────────────────────────────────────────────────────
 def scrape_odontostore(tienda):
+    """
+    Scraper para Odontostore (Joomla + HikaShop).
+    Estructura confirmada en vivo:
+    - Productos listados en categorías: /es/productos/CAT/ID-nombre
+    - Precio en: .hikashop_product_price_full
+    - Sin paginación — todo en una sola página por categoría
+    - Imagen: img dentro del contenedor de producto (opcional, no siempre presente)
+    """
     productos, urls_vistas = [], set()
+
     for cat_path in tienda.get("categorias_urls", []):
         cat_url = tienda["url_base"] + cat_path
-        page = 1
-        print(f"  Cat: {cat_path.split('/')[-1]}")
-        while True:
-            url = f"{cat_url}?page={page}" if page > 1 else cat_url
-            try:
-                r = fetch(url, timeout=15)
-                if r.status_code != 200: break
-                soup = BeautifulSoup(r.text, "lxml")
-                items = soup.select("[class*='product'], [class*='item-prod'], .card")
-                if not items and page > 1: break
-                encontro_nuevos = False
-                for item in items:
-                    nombre_el = item.select_one("[class*='name'], [class*='title'], h2, h3, h4")
-                    precio_el = item.select_one("[class*='price'], [class*='precio']")
-                    link_el = item.select_one("a[href*='/es/productos/']")
-                    if not nombre_el or not precio_el: continue
-                    nombre = nombre_el.get_text(strip=True)
-                    precio = limpiar_precio(precio_el.get_text(strip=True))
-                    href = link_el.get("href", "") if link_el else cat_url
-                    if not href.startswith("http"): href = tienda["url_base"] + href
-                    if href in urls_vistas: continue
-                    urls_vistas.add(href)
-                    encontro_nuevos = True
-                    img_el = item.select_one("img")
-                    imagen = img_el.get("src", "") if img_el else ""
-                    if imagen and not imagen.startswith("http"): imagen = tienda["url_base"] + imagen
-                    if nombre and precio:
-                        productos.append(hacer_producto(tienda, nombre, precio, href, imagen))
-                if not encontro_nuevos: break
-                if not soup.select_one("a[rel='next'], .next, a[href*='page=']"): break
-                page += 1
-            except Exception as e:
-                import traceback
-                print(f"  ! Odontostore cat {cat_path}: {type(e).__name__}: {e}")
-                print(f"  Traceback: {traceback.format_exc()[-300:]}")
-                break
+        cat_nombre = cat_path.strip("/").split("/")[-1]
+        print(f"  Cat: {cat_nombre}")
+
+        try:
+            r = fetch(cat_url, timeout=20)
+            if r.status_code != 200:
+                if r.status_code == 404:
+                    print(f"    ⚠ 404 en {cat_nombre} — categoría no existe")
+                continue
+
+            soup = BeautifulSoup(r.text, "lxml")
+
+            # Links a productos individuales: /es/productos/CAT/ID-nombre-slug
+            # Filtramos links con suficiente profundidad (6+ segmentos) y sin 'checkout'
+            prod_links = [
+                a for a in soup.select(f"a[href*='/es/productos/']")
+                if len(a.get("href","").split("/")) >= 6
+                and "checkout" not in a.get("href","")
+                and "limitstart" not in a.get("href","")
+                and a.get("href","") != cat_path
+            ]
+
+            # Deduplicar por URL
+            hrefs_unicos = {}
+            for a in prod_links:
+                href = a.get("href","")
+                if not href.startswith("http"):
+                    href = tienda["url_base"] + href
+                href_limpia = href.split("?")[0]
+                if href_limpia not in hrefs_unicos and href_limpia not in urls_vistas:
+                    hrefs_unicos[href_limpia] = a
+
+            cat_prods = 0
+            for href_limpia, a_tag in hrefs_unicos.items():
+                urls_vistas.add(href_limpia)
+
+                # Buscar el contenedor padre que tiene nombre + precio
+                contenedor = a_tag.find_parent(
+                    lambda tag: tag.name in ["div","li","article"]
+                    and tag.select_one(".hikashop_product_price_full, [class*='price']")
+                )
+
+                # Nombre: texto del link principal
+                nombre = a_tag.get_text(strip=True)
+                if not nombre or len(nombre) < 3:
+                    # Fallback: buscar h2/h3 en el contenedor
+                    if contenedor:
+                        h = contenedor.select_one("h2, h3, h4, [class*='name']")
+                        nombre = h.get_text(strip=True) if h else ""
+                if not nombre or len(nombre) < 3:
+                    continue
+
+                # Precio: .hikashop_product_price_full (confirmado en vivo)
+                precio = 0
+                if contenedor:
+                    precio_el = contenedor.select_one(".hikashop_product_price_full, [class*='price']")
+                    if precio_el:
+                        precio = limpiar_precio(precio_el.get_text(strip=True))
+
+                if precio <= 0:
+                    continue
+
+                # Imagen (opcional — Odontostore no siempre tiene)
+                imagen = ""
+                if contenedor:
+                    img = contenedor.select_one("img[src*='/images/']")
+                    if img:
+                        src = img.get("src","") or img.get("data-src","")
+                        if src and not src.endswith("logo-odontostore.png"):
+                            imagen = src if src.startswith("http") else tienda["url_base"] + src
+
+                productos.append(hacer_producto(tienda, nombre, precio, href_limpia, imagen))
+                cat_prods += 1
+
+            print(f"    {cat_prods} productos en {cat_nombre}")
+
+        except Exception as e:
+            import traceback
+            print(f"  ! Odontostore {cat_nombre}: {type(e).__name__}: {e}")
+            print(f"    {traceback.format_exc()[-200:]}")
+
     if not productos:
-        print(f"  ⚠ Odontostore: 0 productos — verificar selectores CSS")
+        print(f"  ❌ Odontostore: 0 productos")
+        print(f"     → Plataforma: Joomla + HikaShop")
+        print(f"     → Ejecutar: python debug_tienda.py odontostore --live")
+    else:
+        print(f"  Odontostore: {len(productos)} productos en {len(tienda.get('categorias_urls',[]))} categorías")
+
     return productos
-
-# ─── MOTOR CEDENT ─────────────────────────────────────────────────────────────
-def _extraer_producto_cedent(card, tienda, urls_vistas):
-    """
-    Extrae nombre, precio, url, imagen de una card de producto Odoo.
-    Intenta múltiples selectores para ser robusto ante cambios de versión.
-    """
-    # Nombre — múltiples selectores por versión de Odoo
-    nombre = ""
-    for sel in ["[itemprop='name']", "h5.o_wsale_product_name", "h5", "h6",
-                ".product-name", ".o_product_name", "span.h5", ".card-title"]:
-        el = card.select_one(sel)
-        if el:
-            nombre = el.get_text(strip=True)
-            if nombre and len(nombre) > 2:
-                break
-
-    if not nombre or len(nombre) < 3:
-        return None
-
-    # Precio — múltiples selectores
-    precio = 0
-    for sel_precio in [
-        ".oe_currency_value",          # Odoo 14/15
-        ".o_currency_value",           # Odoo 16
-        "[itemprop='price']",          # Schema.org
-        ".o_wsale_product_price",      # Odoo 16 específico
-        ".price",
-        "[class*='price']",
-    ]:
-        els = card.select(sel_precio)
-        precios_encontrados = []
-        for el in els:
-            val = el.get("content") or el.get_text(strip=True)
-            p = limpiar_precio(val)
-            if p > 50:
-                precios_encontrados.append(p)
-        if precios_encontrados:
-            precio = min(precios_encontrados)
-            break
-
-    if precio <= 0:
-        return None
-
-    # URL
-    href = ""
-    for sel_link in ["a[href*='/shop/']", "a[href*='/producto']", "a[href]"]:
-        link_el = card.select_one(sel_link)
-        if link_el:
-            href = link_el.get("href", "")
-            break
-    if not href:
-        return None
-    if not href.startswith("http"):
-        href = tienda["url_base"] + href
-    href_limpia = href.split("?")[0]
-    if href_limpia in urls_vistas:
-        return None
-    urls_vistas.add(href_limpia)
-
-    # Imagen
-    imagen = ""
-    img_el = card.select_one("img[src], img[data-src]")
-    if img_el:
-        imagen = img_el.get("data-src") or img_el.get("src", "")
-        if imagen and not imagen.startswith("http"):
-            imagen = tienda["url_base"] + imagen
-
-    return hacer_producto(tienda, nombre, precio, href_limpia, imagen)
 
 
 def scrape_cedent(tienda):
@@ -927,18 +917,17 @@ def scrape_cedent(tienda):
     cats_sin_productos = 0
 
     # Selectores de cards de producto — en orden de preferencia por versión Odoo
+    # Selectores verificados en vivo el 01/05/2026:
+    # .oe_product_cart devuelve 28 items en /shop/category/endodoncia-58
+    # .o_wsale_product_grid_wrapper también = 28 (mismo elemento)
     SELECTORES_CARDS = [
-        # Odoo 16/17
-        ".o_wsale_products_grid_item",
-        ".oe_product_cart",
-        # Odoo 14/15
-        "article.product_item",
-        ".o_wsale_product_grid_wrapper .o_wsale_product_information",
-        # Genérico Odoo
-        ".js_product",
-        "[data-product_id]",
-        # Fallback: cualquier item con schema Product
-        "div[itemtype*='Product']",
+        ".oe_product_cart",                                    # ✅ CONFIRMADO en vivo
+        ".o_wsale_product_grid_wrapper",                       # ✅ CONFIRMADO en vivo
+        ".o_wsale_products_grid_item",                         # Odoo 16+ futuro
+        "article.product_item",                                # Odoo 14/15
+        ".js_product",                                         # Genérico Odoo
+        "[data-product_id]",                                   # Genérico Odoo
+        "div[itemtype*='Product']",                            # Schema.org fallback
         "[itemtype='http://schema.org/Product']",
     ]
 
