@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 # ─── Cache ────────────────────────────────────────────────────────────────────
 _cache = {"productos": None, "historial": None, "nombres_norm": None}
-_file_lock = threading.Lock()  # FIX: lock para escritura de archivos
+_file_lock = threading.Lock()
 
 def get_productos():
     if _cache["productos"] is None:
@@ -20,7 +20,6 @@ def get_productos():
     return _cache["productos"]
 
 def get_nombres_norm():
-    """Usa el índice invertido — construye si no existe."""
     return get_nombres_norm_con_indice()
 
 def _actualizar_si_es_necesario():
@@ -58,7 +57,6 @@ from collections import defaultdict
 STOPWORDS = {"de","el","la","lo","los","las","en","con","por","para","y","o","e","un","una","x","a"}
 MIN_FUZZY = 72
 
-# Sinónimos odontológicos
 SINONIMOS_GRUPOS = [
     {"composite","resina","compomero","restaurador"},
     {"anestesia","anescart","carpule","mepivacaina","lidocaina","articaina",
@@ -95,16 +93,13 @@ for _grupo in SINONIMOS_GRUPOS:
         _SINONIMOS_MAP[_tn] = {_norm_sin(s) for s in _grupo if s != _termino}
 
 def normalizar(texto):
-    """Minúsculas, sin acentos, sin caracteres especiales."""
     t = unicodedata.normalize("NFD", texto.lower())
     t = "".join(c for c in t if unicodedata.category(c) != "Mn")
     t = re.sub(r"[-./()%,;:!?\\[\\]]", " ", t)
     return re.sub(r" +", " ", t).strip()
 
 def stemming_basico(token):
-    """Reduce plurales y variantes comunes en español."""
-    if len(token) <= 3:
-        return token
+    if len(token) <= 3: return token
     if token.endswith("ces"):  return token[:-3] + "z"
     if token.endswith("ques"): return token[:-3] + "ca"
     if token.endswith("es") and len(token) > 4: return token[:-2]
@@ -141,8 +136,7 @@ def get_nombres_norm_con_indice():
     return _nombres_norm_cache
 
 def busqueda_por_indice(tokens_query):
-    if not tokens_query or not _indice:
-        return None
+    if not tokens_query or not _indice: return None
     sets_por_token = []
     for token in tokens_query:
         stem = stemming_basico(token)
@@ -155,8 +149,7 @@ def busqueda_por_indice(tokens_query):
                     candidatos |= _indice[key]
         sin_key = f"__sin__{token}"
         if sin_key in _indice: candidatos |= _indice[sin_key]
-        if not candidatos:
-            return set()
+        if not candidatos: return set()
         sets_por_token.append(candidatos)
     resultado = sets_por_token[0]
     for s in sets_por_token[1:]:
@@ -165,8 +158,7 @@ def busqueda_por_indice(tokens_query):
 
 def busqueda_exacta(q_norm, productos, nombres_norm):
     tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
-    if not tokens:
-        return []
+    if not tokens: return []
     candidatos_idx = busqueda_por_indice(tokens)
     if candidatos_idx is not None:
         return [productos[i] for i in sorted(candidatos_idx)]
@@ -222,7 +214,7 @@ def cargar_historial():
 
 def guardar_historial(productos_nuevos):
     from datetime import datetime
-    with _file_lock:  # FIX: lock para evitar race condition
+    with _file_lock:
         hist = cargar_historial()
         hoy = datetime.now().strftime("%Y-%m-%d")
         cambiaron = 0
@@ -254,7 +246,7 @@ REPORTES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "report
 
 def guardar_reporte(producto_id, nombre, tienda, precio_actual, comentario, ip):
     from datetime import datetime
-    with _file_lock:  # FIX: lock para evitar race condition
+    with _file_lock:
         reportes = []
         if os.path.exists(REPORTES_PATH):
             try:
@@ -285,11 +277,11 @@ def index():
 def buscar():
     q = request.args.get("q", "").strip()
     if len(q) < 2:
-        return jsonify([])
+        return jsonify({"resultados": [], "total": 0, "offset": 0, "limit": 30,
+                        "sugerencia": None, "aviso": None})
     if len(q) > 100:
         return jsonify({"error": "Query demasiado larga"}), 400
 
-    # FIX: try/catch para offset inválido
     try:
         offset = max(0, int(request.args.get("offset", 0)))
     except (ValueError, TypeError):
@@ -301,7 +293,6 @@ def buscar():
     nombres_norm = get_nombres_norm()
 
     exactos = busqueda_exacta(q_norm, productos, nombres_norm)
-
     fuzzy = []
     if len(exactos) < 10:
         ids_exactos = {p["id"] for p in exactos}
@@ -309,11 +300,333 @@ def buscar():
 
     todos = sort_por_precio(exactos + fuzzy)
     total = len(todos)
-    return jsonify({"resultados": todos[offset:offset+limit], "total": total, "offset": offset, "limit": limit})
+
+    # Aviso si query muy genérico (1 token corto y muchos resultados)
+    tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
+    aviso = None
+    if len(tokens) == 1 and total > 200:
+        aviso = "Agregá marca, modelo o medida para resultados más precisos"
+
+    # Sugerencia si no hay resultados exactos pero sí fuzzy
+    sugerencia = None
+    if not exactos and fuzzy:
+        mejor = fuzzy[0]["nombre"]
+        sugerencia = f"¿Buscabas: {mejor[:50]}?"
+
+    return jsonify({
+        "resultados": todos[offset:offset+limit],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "aviso": aviso,
+        "sugerencia": sugerencia,
+    })
+
+@app.route("/api/autocomplete")
+def autocomplete():
+    """Sugerencias rápidas mientras el usuario escribe (máx 6 resultados)."""
+    q = request.args.get("q", "").strip()
+    if len(q) < 2:
+        return jsonify([])
+    q_norm = normalizar(q)
+    tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
+    if not tokens:
+        return jsonify([])
+
+    productos = get_productos()
+    nombres_norm = get_nombres_norm()
+
+    # Buscar por prefijo en el índice (rápido)
+    candidatos_idx = busqueda_por_indice(tokens)
+    if candidatos_idx is None:
+        return jsonify([])
+
+    # Armar sugerencias únicas por nombre normalizado
+    vistos = set()
+    sugerencias = []
+    for i in sorted(candidatos_idx):
+        p = productos[i]
+        nombre = p["nombre"]
+        norm_key = nombre.lower()[:40]
+        if norm_key in vistos:
+            continue
+        vistos.add(norm_key)
+        sugerencias.append({
+            "nombre": nombre,
+            "tienda": p["tienda_nombre"],
+            "precio_fmt": p["precio_fmt"],
+        })
+        if len(sugerencias) >= 6:
+            break
+
+    return jsonify(sugerencias)
+
+@app.route("/api/estado")
+def estado():
+    """Estado general del sistema — para el header de confianza."""
+    from datetime import datetime
+    productos = get_productos()
+    por_tienda = {}
+    for p in productos:
+        t = p["tienda_nombre"]
+        por_tienda[t] = por_tienda.get(t, 0) + 1
+
+    # Leer reporte de scraping si existe
+    reporte_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reporte_scraping.json")
+    tiendas_ok = len([t for t in TIENDAS])
+    tiendas_error = 0
+    ultima_actualizacion = None
+    ultima_fmt = "No disponible"
+
+    if os.path.exists(reporte_path):
+        try:
+            with open(reporte_path, encoding="utf-8") as f:
+                rep = json.load(f)
+            ultima_actualizacion = rep.get("fecha", "")
+            tiendas_ok = sum(1 for t in rep.get("tiendas", []) if t.get("estado") in ("ok", "bajo"))
+            tiendas_error = sum(1 for t in rep.get("tiendas", []) if t.get("estado") in ("error_fatal", "sin_productos"))
+            # Formatear fecha
+            if ultima_actualizacion:
+                try:
+                    dt = datetime.strptime(ultima_actualizacion, "%Y-%m-%d %H:%M:%S")
+                    hoy = datetime.now().date()
+                    if dt.date() == hoy:
+                        ultima_fmt = f"hoy {dt.strftime('%H:%M')}"
+                    else:
+                        ultima_fmt = dt.strftime("%d/%m %H:%M")
+                except Exception:
+                    ultima_fmt = ultima_actualizacion[:16]
+        except Exception:
+            pass
+    elif os.path.exists(HIST_PATH):
+        # Fallback: usar fecha de modificación del historial
+        try:
+            mod = os.path.getmtime(HIST_PATH)
+            dt = datetime.fromtimestamp(mod)
+            hoy = datetime.now().date()
+            if dt.date() == hoy:
+                ultima_fmt = f"hoy {dt.strftime('%H:%M')}"
+            else:
+                ultima_fmt = dt.strftime("%d/%m %H:%M")
+        except Exception:
+            pass
+
+    tiendas_totales = len(TIENDAS)
+
+    return jsonify({
+        "total_productos": len(productos),
+        "tiendas_totales": tiendas_totales,
+        "tiendas_ok": tiendas_ok,
+        "tiendas_error": tiendas_error,
+        "ultima_actualizacion": ultima_actualizacion,
+        "ultima_fmt": ultima_fmt,
+        "texto_header": f"{len(productos):,} productos · {tiendas_ok}/{tiendas_totales} tiendas · actualizado {ultima_fmt}".replace(",", "."),
+    })
+
+@app.route("/api/historial/<producto_id>")
+def historial_producto(producto_id):
+    hist = get_historial()
+    entradas = hist.get(producto_id, [])
+    # Calcular variación vs hace 30 días
+    variacion = None
+    precio_30d = None
+    if len(entradas) >= 2:
+        actual = entradas[-1]["precio"]
+        # Buscar entrada más cercana a 30 días atrás
+        from datetime import datetime, timedelta
+        hace_30 = datetime.now() - timedelta(days=30)
+        for e in reversed(entradas[:-1]):
+            try:
+                fecha_e = datetime.strptime(e["fecha"], "%Y-%m-%d")
+                if fecha_e <= hace_30 + timedelta(days=5):
+                    precio_30d = e["precio"]
+                    if precio_30d > 0:
+                        variacion = round(((actual - precio_30d) / precio_30d) * 100, 1)
+                    break
+            except Exception:
+                pass
+    return jsonify({
+        "entradas": entradas,
+        "precio_30d": precio_30d,
+        "variacion_pct": variacion,
+    })
+
+@app.route("/api/compra-inteligente", methods=["POST"])
+def compra_inteligente():
+    """
+    Recibe lista de líneas y resuelve la mejor compra.
+    Para cada línea busca el mejor match y arma 3 estrategias de compra.
+    """
+    data = request.get_json(silent=True) or {}
+    lineas_raw = str(data.get("lista", "")).strip().split("\n")
+    lineas = [l.strip() for l in lineas_raw if l.strip() and len(l.strip()) > 1][:30]
+
+    if not lineas:
+        return jsonify({"error": "Lista vacía"}), 400
+
+    productos = get_productos()
+    nombres_norm = get_nombres_norm()
+
+    def buscar_linea(linea):
+        q_norm = normalizar(linea)
+        tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
+        if not tokens:
+            return {"linea": linea, "matches": [], "generica": True, "aviso": "Línea muy genérica"}
+
+        # Genérica: 1 token corto
+        es_generica = len(tokens) == 1 and len(tokens[0]) <= 5
+
+        # Búsqueda exacta primero
+        exactos = busqueda_exacta(q_norm, productos, nombres_norm)
+
+        # Fuzzy si pocos exactos
+        fuzzy = []
+        if len(exactos) < 5:
+            ids_ex = {p["id"] for p in exactos}
+            fuzzy_raw = []
+            for i, nombre in enumerate(nombres_norm):
+                p = productos[i]
+                if p["id"] in ids_ex: continue
+                s = score_fuzzy(q_norm, nombre)
+                if s >= 68:
+                    fuzzy_raw.append((s, p))
+            fuzzy_raw.sort(key=lambda x: -x[0])
+            fuzzy = [p for _, p in fuzzy_raw[:5]]
+
+        todos = exactos[:10] + fuzzy[:5]
+        todos = sort_por_precio(todos)
+
+        # Calcular confianza de cada match
+        matches = []
+        for p in todos[:5]:
+            nombre_norm = normalizar(p["nombre"])
+            s_exact = int(fuzz.token_set_ratio(q_norm, nombre_norm))
+            s_partial = int(fuzz.partial_ratio(q_norm, nombre_norm))
+            confianza = max(s_exact, s_partial)
+            matches.append({
+                "id": p["id"],
+                "nombre": p["nombre"],
+                "tienda": p["tienda_nombre"],
+                "tienda_slug": p["tienda_slug"],
+                "precio": p["precio"],
+                "precio_fmt": p["precio_fmt"],
+                "url": p.get("url", ""),
+                "confianza": confianza,
+            })
+
+        aviso = "Agregá marca o detalle para mejores resultados" if es_generica else None
+        return {
+            "linea": linea,
+            "matches": matches,
+            "generica": es_generica,
+            "aviso": aviso,
+        }
+
+    resultados = [buscar_linea(l) for l in lineas]
+
+    # Construir las 3 estrategias de compra
+    def estrategia_mas_barato(resultados):
+        """El producto más barato para cada línea, sin importar tienda."""
+        total = 0
+        tiendas_usadas = set()
+        items = []
+        for r in resultados:
+            if not r["matches"]:
+                items.append(None)
+                continue
+            mejor = min((m for m in r["matches"] if m["precio"] > 0), key=lambda m: m["precio"], default=None)
+            if mejor:
+                items.append(mejor)
+                total += mejor["precio"]
+                tiendas_usadas.add(mejor["tienda"])
+            else:
+                items.append(None)
+        return {"items": items, "total": total, "n_tiendas": len(tiendas_usadas),
+                "tiendas": list(tiendas_usadas)}
+
+    def estrategia_menos_tiendas(resultados):
+        """Concentrar la compra en la menor cantidad de tiendas posible."""
+        from collections import Counter
+        # Contar qué tienda aparece más como opción barata
+        tienda_scores = Counter()
+        for r in resultados:
+            for m in r["matches"][:3]:
+                if m["precio"] > 0:
+                    tienda_scores[m["tienda"]] += 1
+
+        if not tienda_scores:
+            return estrategia_mas_barato(resultados)
+
+        tienda_principal = tienda_scores.most_common(1)[0][0]
+        total = 0
+        tiendas_usadas = set()
+        items = []
+        for r in resultados:
+            if not r["matches"]:
+                items.append(None)
+                continue
+            # Preferir la tienda principal, si no está disponible usar el más barato
+            de_tienda = [m for m in r["matches"] if m["tienda"] == tienda_principal and m["precio"] > 0]
+            if de_tienda:
+                mejor = min(de_tienda, key=lambda m: m["precio"])
+            else:
+                mejor = min((m for m in r["matches"] if m["precio"] > 0),
+                           key=lambda m: m["precio"], default=None)
+            if mejor:
+                items.append(mejor)
+                total += mejor["precio"]
+                tiendas_usadas.add(mejor["tienda"])
+            else:
+                items.append(None)
+        return {"items": items, "total": total, "n_tiendas": len(tiendas_usadas),
+                "tiendas": list(tiendas_usadas)}
+
+    def estrategia_balanceada(resultados):
+        """Top 2 tiendas con más productos disponibles."""
+        from collections import Counter
+        tienda_scores = Counter()
+        for r in resultados:
+            for m in r["matches"][:3]:
+                if m["precio"] > 0:
+                    tienda_scores[m["tienda"]] += 1
+        top2 = {t for t, _ in tienda_scores.most_common(2)}
+        total = 0
+        tiendas_usadas = set()
+        items = []
+        for r in resultados:
+            if not r["matches"]:
+                items.append(None)
+                continue
+            de_top2 = [m for m in r["matches"] if m["tienda"] in top2 and m["precio"] > 0]
+            if de_top2:
+                mejor = min(de_top2, key=lambda m: m["precio"])
+            else:
+                mejor = min((m for m in r["matches"] if m["precio"] > 0),
+                           key=lambda m: m["precio"], default=None)
+            if mejor:
+                items.append(mejor)
+                total += mejor["precio"]
+                tiendas_usadas.add(mejor["tienda"])
+            else:
+                items.append(None)
+        return {"items": items, "total": total, "n_tiendas": len(tiendas_usadas),
+                "tiendas": list(tiendas_usadas)}
+
+    est_barato = estrategia_mas_barato(resultados)
+    est_tiendas = estrategia_menos_tiendas(resultados)
+    est_balance = estrategia_balanceada(resultados)
+
+    return jsonify({
+        "lineas": resultados,
+        "estrategias": {
+            "mas_barato": est_barato,
+            "menos_tiendas": est_tiendas,
+            "balanceado": est_balance,
+        }
+    })
 
 @app.route("/api/actualizar", methods=["POST"])
 def actualizar():
-    # FIX: requiere clave para evitar DoS
     clave = request.args.get("clave", "")
     ADMIN_CLAVE = os.environ.get("ADMIN_CLAVE")
     if not ADMIN_CLAVE or clave != ADMIN_CLAVE:
@@ -322,17 +635,11 @@ def actualizar():
         nuevos = correr_scraper()
         _cache["productos"] = nuevos
         _cache["nombres_norm"] = None
-        # Reconstruir índice invertido con nuevos productos
         global _nombres_norm_cache, _indice
         _nombres_norm_cache = []
         _indice = {}
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({"ok": True, "mensaje": "Actualizando en segundo plano..."})
-
-@app.route("/api/historial/<producto_id>")
-def historial_producto(producto_id):
-    hist = get_historial()
-    return jsonify(hist.get(producto_id, []))
 
 @app.route("/api/reporte", methods=["POST"])
 def reporte():
@@ -340,7 +647,6 @@ def reporte():
     producto_id = str(data.get("id", ""))[:50]
     nombre = str(data.get("nombre", ""))[:200]
     tienda = str(data.get("tienda", ""))[:100]
-    # FIX: try/catch para precio inválido
     try:
         precio_actual = float(data.get("precio", 0))
     except (ValueError, TypeError):
@@ -355,7 +661,6 @@ def reporte():
 @app.route("/admin/reportes")
 def ver_reportes():
     clave = request.args.get("clave", "")
-    # FIX: sin fallback débil — si no hay var de entorno, siempre bloquear
     ADMIN_CLAVE = os.environ.get("ADMIN_CLAVE")
     if not ADMIN_CLAVE or clave != ADMIN_CLAVE:
         return "Acceso denegado", 403
@@ -363,7 +668,7 @@ def ver_reportes():
         return "No hay reportes todavia.", 200
     try:
         import csv, io
-        with open(REPORTES_PATH, encoding="utf-8") as f:  # FIX: context manager
+        with open(REPORTES_PATH, encoding="utf-8") as f:
             reportes = json.load(f)
         output = io.StringIO()
         writer = csv.writer(output)
@@ -387,10 +692,9 @@ def stats():
 
 @app.route("/api/reporte-scraping")
 def reporte_scraping():
-    """Devuelve el último reporte de scraping con estadísticas por tienda."""
     reporte_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reporte_scraping.json")
     if not os.path.exists(reporte_path):
-        return jsonify({"error": "No hay reporte disponible aún. Corré el scraper primero."}), 404
+        return jsonify({"error": "No hay reporte disponible aún."}), 404
     with open(reporte_path, encoding="utf-8") as f:
         return jsonify(json.load(f))
 
