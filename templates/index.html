@@ -234,6 +234,7 @@ input,textarea{font-family:var(--font-b)}
 .conf-baja{background:#FEE2E2;color:#991B1B}
 .ci-precio{font-weight:700;color:var(--text);white-space:nowrap}
 .ci-sin-match{color:var(--text3);font-size:12px;font-style:italic}
+.ci-nota-variante{font-size:11px;color:var(--warn);background:var(--warn-light);border-radius:4px;padding:2px 7px;margin-top:3px;display:inline-block}
 .ci-aviso{font-size:11px;color:var(--warn);margin-top:3px}
 .ci-attrs{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
 .attr-match{font-size:10px;padding:1px 5px;border-radius:3px;background:#D1FAE5;color:#065F46;white-space:nowrap}
@@ -1174,6 +1175,7 @@ function renderCiTabla() {
       </td>
       <td>
         <div class="ci-match-nombre">${esc(item.nombre)}</div>
+        ${item.nota_variante ? `<div class="ci-nota-variante">🎨 ${esc(item.nota_variante)}</div>` : ''}
         ${attrHtml}
         ${altHtml}
       </td>
