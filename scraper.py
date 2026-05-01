@@ -486,7 +486,7 @@ def scrape_producto_prestashop(url, tienda):
         return None
 
 # ─── MOTOR CON SITEMAP ────────────────────────────────────────────────────────
-def scrape_con_sitemap(tienda, cache_existente=None):
+def scrape_con_sitemap(tienda, cache_existente=None, info_tienda=None):
     """
     Scrapea productos del sitemap.
     Si lastmod tiene más de 2 días Y el producto ya existe en cache → lo reutiliza.
@@ -543,6 +543,8 @@ def scrape_con_sitemap(tienda, cache_existente=None):
                     prod = dict(cache_url[url])
                     prod["actualizado"] = datetime.now().strftime("%d/%m/%Y %H:%M")
                     productos_reutilizados.append(prod)
+                    if info_tienda is not None:
+                        info_tienda["reutilizados_cache"] = info_tienda.get("reutilizados_cache", 0) + 1
                     continue
             except Exception:
                 pass  # Si falla el parsing, scrapear igual
@@ -557,7 +559,10 @@ def scrape_con_sitemap(tienda, cache_existente=None):
             for i, future in enumerate(as_completed(futures), 1):
                 r = future.result()
                 if r: productos_nuevos.append(r)
-                else: errores += 1
+                else:
+                    errores += 1
+                    if info_tienda is not None:
+                        info_tienda["errores"] = info_tienda.get("errores", 0) + 1
                 if i % 100 == 0 or i == total:
                     print(f"  [{i}/{total}] {len(productos_nuevos)} OK, {errores} sin precio/stock")
                 time.sleep(DELAY / MAX_WORKERS)
@@ -835,8 +840,12 @@ def scrape_odontostore(tienda):
                 if not soup.select_one("a[rel='next'], .next, a[href*='page=']"): break
                 page += 1
             except Exception as e:
-                print(f"  ! {e}")
+                import traceback
+                print(f"  ! Odontostore cat {cat_path}: {type(e).__name__}: {e}")
+                print(f"  Traceback: {traceback.format_exc()[-300:]}")
                 break
+    if not productos:
+        print(f"  ⚠ Odontostore: 0 productos — verificar selectores CSS")
     return productos
 
 # ─── MOTOR CEDENT ─────────────────────────────────────────────────────────────
@@ -889,30 +898,79 @@ def scrape_cedent(tienda):
                 if not next_btn: break
                 page += 1
             except Exception as e:
-                print(f"  ! {e}")
+                import traceback
+                print(f"  ! Cedent cat {cat_path}: {type(e).__name__}: {e}")
+                print(f"  Traceback: {traceback.format_exc()[-300:]}")
                 break
+    if not productos:
+        print(f"  ⚠ Cedent: 0 productos — verificar selectores CSS o que el sitio no haya cambiado")
     return productos
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
+REPORTE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reporte_scraping.json")
+
+def _metodo_scraping(tipo):
+    return {
+        "tiendanube": "sitemap_xml",
+        "woocommerce": "sitemap_xml",
+        "shopify": "api_json",
+        "woocommerce_paginado": "html_paginado",
+        "prestashop": "html_categorias",
+        "carrizo": "html_categorias_custom",
+        "dentalab": "html_categorias_custom",
+        "odontostore": "html_categorias_custom",
+        "cedent": "html_categorias_odoo",
+    }.get(tipo, "desconocido")
+
 def correr_scraper():
     todos = []
     inicio_total = time.time()
-    # Cargar cache existente para reutilizar productos sin cambios
+    reporte = {
+        "fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "tiendas": [],
+        "total_productos": 0,
+        "total_errores": 0,
+        "duracion_total_s": 0,
+    }
+
+    # Cargar cache existente
     cache_existente = []
     if os.path.exists(DB_PATH):
         try:
             with open(DB_PATH, encoding="utf-8") as f:
                 cache_existente = json.load(f)
             print(f"Cache cargado: {len(cache_existente)} productos existentes")
-        except Exception:
+        except Exception as ex:
+            print(f"  ! No se pudo cargar cache: {ex}")
             cache_existente = []
+
     for tienda in TIENDAS:
         inicio = time.time()
-        print(f"\n{'='*50}\nScrapeando: {tienda['nombre']}\n{'='*50}")
+        slug = tienda["slug"]
+        nombre = tienda["nombre"]
+        tipo = tienda["tipo"]
+        print(f"\n{'='*50}\nScrapeando: {nombre} ({tipo})\n{'='*50}")
+
+        info_tienda = {
+            "slug": slug,
+            "nombre": nombre,
+            "tipo": tipo,
+            "metodo": _metodo_scraping(tipo),
+            "productos": 0,
+            "reutilizados_cache": 0,
+            "errores": 0,
+            "warnings": [],
+            "duracion_s": 0,
+            "estado": "ok",
+        }
+
+        prods = []
         try:
-            tipo = tienda["tipo"]
             if tipo in ("tiendanube", "woocommerce") and tienda.get("sitemap"):
-                prods = scrape_con_sitemap(tienda, cache_existente=cache_existente)
+                prods = scrape_con_sitemap(tienda, cache_existente=cache_existente,
+                                           info_tienda=info_tienda)
+            elif tipo == "shopify":
+                prods = scrape_shopify(tienda)
             elif tipo == "woocommerce_paginado":
                 prods = scrape_paginado_woocommerce(tienda)
             elif tipo == "prestashop":
@@ -926,15 +984,70 @@ def correr_scraper():
             elif tipo == "cedent":
                 prods = scrape_cedent(tienda)
             else:
+                info_tienda["warnings"].append(f"Tipo desconocido: {tipo}")
+                info_tienda["estado"] = "sin_motor"
                 prods = []
         except Exception as e:
-            print(f"  ERROR: {e}")
+            import traceback
+            error_msg = f"{type(e).__name__}: {e}"
+            tb = traceback.format_exc()
+            print(f"  ❌ ERROR FATAL en {nombre}: {error_msg}")
+            print(f"  Traceback:\n{tb}")
+            info_tienda["estado"] = "error_fatal"
+            info_tienda["error_detalle"] = error_msg
+            info_tienda["traceback"] = tb
             prods = []
-        print(f"  TOTAL: {len(prods)} productos en {int(time.time()-inicio)}s")
+
+        duracion = round(time.time() - inicio, 1)
+        info_tienda["productos"] = len(prods)
+        info_tienda["duracion_s"] = duracion
+
+        # Alertas automáticas
+        if len(prods) == 0:
+            info_tienda["estado"] = "sin_productos"
+            info_tienda["warnings"].append("⚠ 0 productos — verificar manualmente")
+            print(f"  ⚠ ALERTA: 0 productos en {nombre}")
+        elif len(prods) < 50:
+            info_tienda["warnings"].append(f"⚠ Solo {len(prods)} productos — puede ser bajo")
+            if info_tienda["estado"] == "ok":
+                info_tienda["estado"] = "bajo"
+
+        estado_icon = {"ok": "✅", "bajo": "⚠", "sin_productos": "❌", "error_fatal": "💥", "sin_motor": "❓"}.get(info_tienda["estado"], "?")
+        print(f"  {estado_icon} TOTAL: {len(prods)} productos en {duracion}s [{info_tienda['estado']}]")
+
+        reporte["tiendas"].append(info_tienda)
         todos.extend(prods)
+
+    duracion_total = round(time.time() - inicio_total, 1)
+    reporte["total_productos"] = len(todos)
+    reporte["total_errores"] = sum(1 for t in reporte["tiendas"] if t["estado"] in ("error_fatal", "sin_productos"))
+    reporte["duracion_total_s"] = duracion_total
+
+    # Guardar productos.json
     with open(DB_PATH, "w", encoding="utf-8") as f:
         json.dump(todos, f, ensure_ascii=False)
-    print(f"\n{'='*50}\nTERMINADO: {len(todos)} productos en {int(time.time()-inicio_total)}s\nGuardado en: {DB_PATH}\n{'='*50}")
+    print(f"✅ productos.json guardado: {len(todos)} productos ({os.path.getsize(DB_PATH)//1024}KB)")
+
+    # Guardar reporte_scraping.json
+    with open(REPORTE_PATH, "w", encoding="utf-8") as f:
+        json.dump(reporte, f, ensure_ascii=False, indent=2)
+    print(f"📊 reporte_scraping.json guardado")
+
+    # Imprimir resumen final
+    print(f"\n{'='*60}")
+    print(f"RESUMEN FINAL — {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    print(f"{'='*60}")
+    print(f"{'Tienda':<30} {'Prods':>6} {'Tiempo':>7} {'Estado'}")
+    print(f"{'-'*60}")
+    for t in reporte["tiendas"]:
+        icon = {"ok":"✅","bajo":"⚠","sin_productos":"❌","error_fatal":"💥","sin_motor":"❓"}.get(t["estado"],"?")
+        print(f"{t['nombre']:<30} {t['productos']:>6} {t['duracion_s']:>6}s {icon} {t['estado']}")
+        for w in t.get("warnings", []):
+            print(f"  {w}")
+    print(f"{'='*60}")
+    print(f"TOTAL: {len(todos)} productos en {duracion_total}s")
+    print(f"{'='*60}\n")
+
     return todos
 
 def cargar_productos():
