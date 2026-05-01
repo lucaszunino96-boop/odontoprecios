@@ -451,6 +451,174 @@ def historial_producto(producto_id):
         "variacion_pct": variacion,
     })
 
+
+# ─── PARSER UNIVERSAL DE ATRIBUTOS ───────────────────────────────────────────
+#
+# Extrae atributos estructurados de cualquier texto de producto odontológico.
+# Sin reglas por producto — trabaja por patrones léxicos universales.
+#
+
+# Drogas anestésicas — vocabulario técnico fijo del dominio
+_DROGAS = {
+    'mepivacaina','lidocaina','articaina','bupivacaina','prilocaina',
+    'scandicaine','alphacaine','mepinor','anescart','ultracaine','septocaine',
+    'xylestesin','novocaina','carticaina','mepivastesin',
+}
+
+# Materiales de guantes/barreras (par opuesto: penaliza si difieren)
+_MATERIALES = [
+    'nitrilo','latex','vinilo','neopreno','silicona','acrilico',
+    'carbide','diamante','acero','metal','fibra','papel','algodon',
+    'ceramica','circonio','titanio','cobalto',
+]
+
+# Colores
+_COLORES = [
+    'negro','blanco','azul','rojo','verde','amarillo',
+    'naranja','transparente','natural','rosado','violeta',
+]
+
+# Pesos de cada atributo: cuánto suma un match y cuánto penaliza un conflicto
+_PESOS = {
+    'tono':       {'match': 30, 'conflict': -65},  # A3≠A2 = crítico
+    'modelo':     {'match': 25, 'conflict': -45},  # Z350≠Z250
+    'talle':      {'match': 20, 'conflict': -55},  # M≠L
+    'material':   {'match': 15, 'conflict': -55},  # nitrilo≠latex
+    'calibre':    {'match': 25, 'conflict': -60},  # #25≠#35
+    'droga':      {'match': 20, 'conflict': -60},  # mepivacaina≠articaina
+    'porcentaje': {'match': 10, 'conflict': -35},
+    'dilucion':   {'match': 10, 'conflict': -30},
+    'color':      {'match':  5, 'conflict': -20},
+    'cantidad':   {'match':  3, 'conflict':  -8},
+    'medidas':    {'match': 12, 'conflict': -30},
+}
+
+_STOP_ATTRS = {
+    'de','el','la','los','las','en','con','por','para','y','o','un','una',
+    'x','talle','talla','tipo','nro','num','iso','mas','plus','pro',
+    'kit','pack','set','caja','frasco','jeringa','compula','unidad',
+    'unidades','caja','bolsa','rollo','tubo','sobre',
+}
+
+def _extraer_atributos(texto):
+    """
+    Parser universal de atributos odontológicos.
+    Sin hardcodeo por producto — trabaja por patrones léxicos.
+    """
+    t = normalizar(texto)
+    t_orig = texto
+    attrs = {}
+
+    # ── TONO dental: A1, A2, A3, B1, C2, D3, A3.5, etc. ──
+    tonos = re.findall(r'\b([a-d][0-9](?:[.,][0-9])?)\b', t)
+    if tonos: attrs['tono'] = tonos[0]
+
+    # ── MODELO alfanumérico: Z350, Z250, P60, Z100, XT, etc. ──
+    modelos = re.findall(r'\b([a-z]{1,5}\d{2,4}(?:[a-z]{0,4})?)\b', t)
+    modelos = [m for m in modelos
+               if not re.match(r'^(iso|nro|num|the|and|con|pro|mas|x\d+)$', m)
+               and len(m) >= 3]
+    if modelos: attrs['modelo'] = modelos[0]
+
+    # ── MEDIDAS con unidad: 25mm, 4g, 8ml, 1kg, etc. ──
+    medidas = re.findall(r'\b(\d+(?:[.,]\d+)?\s*(?:mm|ml|g|kg|cm|l|cc|ul))\b', t)
+    if medidas:
+        attrs['medidas'] = sorted(set(m.replace(' ', '') for m in medidas))
+
+    # ── PORCENTAJE: 3%, 5.25%, 0.12% ──
+    porcs = re.findall(r'\b(\d+(?:[.,]\d+)?)\s*%', t)
+    if porcs: attrs['porcentaje'] = porcs[0]
+
+    # ── TALLE: M, L, XL, S, XS ──
+    talle = re.search(r'\b(?:talle\s*|talla\s*|size\s*)?([xX]{0,2}[sSlLmM])\b(?!\w)', t)
+    if talle: attrs['talle'] = talle.group(1).upper()
+
+    # ── CANTIDAD: x50, x100, x5, 50 unidades ──
+    cant = re.search(r'\bx\s*(\d+)\b', t)
+    if not cant:
+        cant = re.search(r'\b(\d+)\s*(?:unidades|unid|u\b|caps?|carpules?)', t)
+    if cant: attrs['cantidad'] = int(cant.group(1))
+
+    # ── CALIBRE de instrumento: #25, ISO 25, nro 15 ──
+    calib = re.search(r'#\s*(\d{1,3})\b', t_orig)
+    if not calib: calib = re.search(r'\biso\s*(\d{1,3})\b', t)
+    if not calib: calib = re.search(r'\bnro?\.?\s*(\d{1,3})\b', t)
+    if calib: attrs['calibre'] = calib.group(1)
+
+    # ── DILUCIÓN: 1:100000, 1:80000 ──
+    dil = re.search(r'1\s*:\s*(\d+)', t_orig)
+    if dil: attrs['dilucion'] = f"1:{dil.group(1)}"
+
+    # ── DROGA anestésica ──
+    for droga in _DROGAS:
+        if re.search(r'\b' + droga[:6] + r'\w*\b', t):
+            attrs['droga'] = droga
+            break
+
+    # ── MATERIAL ──
+    for mat in _MATERIALES:
+        if re.search(r'\b' + mat[:5] + r'\w*\b', t):
+            attrs['material'] = mat
+            break
+
+    # ── COLOR ──
+    for col in _COLORES:
+        if re.search(r'\b' + col[:4] + r'\w*\b', t):
+            attrs['color'] = col
+            break
+
+    # ── TOKENS SEMÁNTICOS (lo que queda) ──
+    attrs['tokens'] = [
+        tok for tok in t.split()
+        if len(tok) > 1
+        and tok not in _STOP_ATTRS
+        and not re.match(r'^\d+(?:mm|ml|g|kg|%|cm)?$', tok)
+        and not re.match(r'^\d+$', tok)
+    ]
+
+    return attrs
+
+
+def _score_atributos(q_attrs, p_attrs, q_norm, p_norm):
+    """
+    Score final = fuzzy_base + bonus_atributos_coinciden - penalizacion_conflictos.
+    Devuelve (score_0_100, detalles_list).
+    """
+    base = max(
+        int(fuzz.token_set_ratio(q_norm, p_norm)),
+        int(fuzz.partial_ratio(q_norm, p_norm)),
+    )
+
+    bonus = 0
+    penalizacion = 0
+    detalles = []
+
+    for attr, pesos in _PESOS.items():
+        q_val = q_attrs.get(attr)
+        p_val = p_attrs.get(attr)
+        if q_val is None or p_val is None:
+            continue
+
+        if attr == 'medidas':
+            q_set = set(q_val) if isinstance(q_val, list) else {q_val}
+            p_set = set(p_val) if isinstance(p_val, list) else {p_val}
+            if q_set & p_set:
+                bonus += pesos['match']
+                detalles.append(f"+{attr}:{list(q_set)[0]}")
+            elif q_set and p_set:
+                penalizacion += abs(pesos['conflict'])
+                detalles.append(f"✗{attr}:{list(q_set)[0]}≠{list(p_set)[0]}")
+        else:
+            if str(q_val).lower().strip() == str(p_val).lower().strip():
+                bonus += pesos['match']
+                detalles.append(f"+{attr}:{q_val}")
+            else:
+                penalizacion += abs(pesos['conflict'])
+                detalles.append(f"✗{attr}:{q_val}≠{p_val}")
+
+    score = max(0, min(100, base + bonus - penalizacion))
+    return score, base, detalles
+
 @app.route("/api/compra-inteligente", methods=["POST"])
 def compra_inteligente():
     """
@@ -468,41 +636,65 @@ def compra_inteligente():
     nombres_norm = get_nombres_norm()
 
     def buscar_linea(linea):
+        """
+        Motor universal de matching para una línea de pedido.
+        Usa parser de atributos + scoring con penalización por conflicto.
+        """
         q_norm = normalizar(linea)
         tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
         if not tokens:
-            return {"linea": linea, "matches": [], "generica": True, "aviso": "Línea muy genérica"}
+            return {"linea": linea, "matches": [], "generica": True,
+                    "aviso": "Línea muy genérica — agregá nombre de producto"}
 
-        # Genérica: 1 token corto
         es_generica = len(tokens) == 1 and len(tokens[0]) <= 5
 
-        # Búsqueda exacta primero
-        exactos = busqueda_exacta(q_norm, productos, nombres_norm)
+        # Extraer atributos del pedido
+        q_attrs = _extraer_atributos(linea)
 
-        # Fuzzy si pocos exactos
-        fuzzy = []
-        if len(exactos) < 5:
-            ids_ex = {p["id"] for p in exactos}
-            fuzzy_raw = []
+        # ── Paso 1: candidatos por índice invertido (rápido) ──
+        candidatos_idx = busqueda_por_indice(tokens)
+        if candidatos_idx:
+            candidatos = [productos[i] for i in sorted(candidatos_idx)]
+        else:
+            # Fallback fuzzy amplio si el índice no encontró nada
+            candidatos = []
             for i, nombre in enumerate(nombres_norm):
-                p = productos[i]
-                if p["id"] in ids_ex: continue
-                s = score_fuzzy(q_norm, nombre)
-                if s >= 68:
-                    fuzzy_raw.append((s, p))
-            fuzzy_raw.sort(key=lambda x: -x[0])
-            fuzzy = [p for _, p in fuzzy_raw[:5]]
+                s = max(int(fuzz.partial_ratio(q_norm, nombre)),
+                        int(fuzz.token_set_ratio(q_norm, nombre)))
+                if s >= 55:
+                    candidatos.append(productos[i])
 
-        todos = exactos[:10] + fuzzy[:5]
-        todos = sort_por_precio(todos)
+        if not candidatos:
+            return {"linea": linea, "matches": [], "generica": es_generica,
+                    "aviso": "No encontramos coincidencias — probá con otro término"}
 
-        # Calcular confianza de cada match
+        # ── Paso 2: scoring universal con penalización por conflicto ──
+        scored = []
+        for p in candidatos:
+            p_norm = normalizar(p["nombre"])
+            p_attrs = _extraer_atributos(p["nombre"])
+            score, base, detalles = _score_atributos(q_attrs, p_attrs, q_norm, p_norm)
+            if score >= 30:  # umbral mínimo para aparecer
+                scored.append((score, base, detalles, p))
+
+        # Ordenar: primero por score, luego por precio
+        scored.sort(key=lambda x: (-x[0], x[3]["precio"]))
+
+        # ── Paso 3: tomar top 5, clasificar confianza ──
         matches = []
-        for p in todos[:5]:
-            nombre_norm = normalizar(p["nombre"])
-            s_exact = int(fuzz.token_set_ratio(q_norm, nombre_norm))
-            s_partial = int(fuzz.partial_ratio(q_norm, nombre_norm))
-            confianza = max(s_exact, s_partial)
+        for score, base, detalles, p in scored[:5]:
+            # Detectar si hay conflictos críticos
+            conflictos = [d for d in detalles if d.startswith("✗")]
+            sin_conflicto = len(conflictos) == 0
+
+            # Etiqueta de confianza
+            if score >= 85 and sin_conflicto:
+                nivel = "alta"
+            elif score >= 60 and len(conflictos) <= 1:
+                nivel = "media"
+            else:
+                nivel = "baja"
+
             matches.append({
                 "id": p["id"],
                 "nombre": p["nombre"],
@@ -511,10 +703,18 @@ def compra_inteligente():
                 "precio": p["precio"],
                 "precio_fmt": p["precio_fmt"],
                 "url": p.get("url", ""),
-                "confianza": confianza,
+                "confianza": score,
+                "confianza_nivel": nivel,
+                "detalles_match": detalles[:4],
+                "conflictos": conflictos,
             })
 
-        aviso = "Agregá marca o detalle para mejores resultados" if es_generica else None
+        aviso = None
+        if es_generica:
+            aviso = "Agregá marca, modelo o detalle para mejores resultados"
+        elif matches and matches[0]["confianza_nivel"] == "baja":
+            aviso = "No encontramos coincidencia exacta — mostramos opciones similares"
+
         return {
             "linea": linea,
             "matches": matches,
