@@ -3,623 +3,744 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<!-- SEO -->
-<title>OdontoPrecio — Comparador de precios de insumos dentales Argentina</title>
-<meta name="description" content="Compará precios de insumos odontológicos en más de 25 distribuidoras dentales de Argentina. Encontrá el mejor precio en composites, anestesias, fresas, brackets y más.">
-<meta name="keywords" content="insumos odontológicos argentina, comparador precios dentales, composite precio, anestesia dental precio, material dental argentina">
-<meta name="author" content="OdontoPrecio">
-<meta name="robots" content="index, follow">
-<link rel="canonical" href="https://odontoprecios.onrender.com">
-
-<!-- Open Graph -->
-<meta property="og:title" content="OdontoPrecio — Comparador de insumos dentales Argentina">
-<meta property="og:description" content="Compará precios en más de 25 distribuidoras dentales. Composite, anestesia, fresas, brackets y mucho más.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://odontoprecios.onrender.com">
-<meta property="og:image" content="https://odontoprecios.onrender.com/static/og.png">
-<meta property="og:locale" content="es_AR">
-
-<!-- Twitter Card -->
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="OdontoPrecio — Comparador de insumos dentales">
-<meta name="twitter:description" content="Encontrá el mejor precio en insumos odontológicos de Argentina.">
-
-<!-- Google Analytics -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-12PEY6GW62"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-12PEY6GW62');
-</script>
-
-<!-- Schema.org structured data -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "OdontoPrecio",
-  "description": "Comparador de precios de insumos odontológicos en Argentina",
-  "url": "https://odontoprecios.onrender.com",
-  "applicationCategory": "HealthApplication",
-  "operatingSystem": "Web",
-  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "ARS" }
-}
-</script>
-
+<title>OdontoPrecio — Comparador de insumos dentales Argentina</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,700&display=swap" rel="stylesheet">
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --bg:#F7F6F3; --surface:#fff; --surface2:#F0EEE9;
+  --bg:#F7F6F3; --surface:#fff; --surface2:#F0EEE9; --surface3:#E8E6E0;
   --border:#E4E1D9; --border2:#D0CCC2;
   --text:#1A1916; --text2:#6B6760; --text3:#9E9A94;
-  --accent:#1B5E42; --accent2:#2D7A58;
-  --danger:#C0392B; --wa:#25D366;
-  --r:10px; --r-lg:16px;
+  --accent:#1B5E42; --accent2:#2D7A58; --accent-light:#E8F5EE;
+  --danger:#C0392B; --danger-light:#FEF2F2;
+  --warn:#D97706; --warn-light:#FFFBEB;
+  --info:#1D4ED8; --info-light:#EFF6FF;
+  --wa:#25D366;
+  --r:10px; --r-lg:16px; --r-xl:20px;
   --sh-sm:0 1px 3px rgba(0,0,0,.06);
   --sh-md:0 4px 16px rgba(0,0,0,.08);
-  --font-d:'Fraunces',serif; --font-b:'Plus Jakarta Sans',sans-serif;
+  --sh-lg:0 8px 32px rgba(0,0,0,.12);
+  --font-d:'Fraunces',serif;
+  --font-b:'Plus Jakarta Sans',sans-serif;
 }
-body { font-family:var(--font-b); background:var(--bg); color:var(--text); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+button{font-family:var(--font-b);cursor:pointer;border:none;background:none}
+input,textarea{font-family:var(--font-b)}
 
-/* HEADER */
-.header { background:var(--text); position:sticky; top:0; z-index:300; }
-.header-inner { max-width:1200px; margin:0 auto; padding:0 24px; height:58px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
-.logo { display:flex; align-items:center; gap:9px; text-decoration:none; }
-.logo-icon { width:30px; height:30px; background:var(--accent); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:15px; }
-.logo-text { font-family:var(--font-d); font-size:19px; font-weight:700; color:#fff; letter-spacing:-.3px; }
-.logo-text em { color:#6ECFA1; font-style:normal; }
-.header-stats { font-size:12px; color:rgba(255,255,255,.35); }
-.btn-lista-hdr { display:flex; align-items:center; gap:7px; padding:7px 14px; border-radius:8px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06); color:rgba(255,255,255,.75); font-family:var(--font-b); font-size:13px; font-weight:500; cursor:pointer; transition:all .18s; }
-.btn-lista-hdr:hover, .btn-lista-hdr.active { background:var(--accent); border-color:var(--accent); color:#fff; }
-.hdr-badge { background:#6ECFA1; color:var(--text); border-radius:20px; padding:1px 6px; font-size:11px; font-weight:700; min-width:18px; text-align:center; transition:transform .2s; }
-.hdr-badge.empty { background:rgba(255,255,255,.2); color:rgba(255,255,255,.6); }
-.hdr-badge.pulse { animation:pulse .4s ease; }
-@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.4)} }
+/* ── HEADER ── */
+.header{background:var(--text);position:sticky;top:0;z-index:300}
+.header-inner{max-width:1200px;margin:0 auto;padding:0 24px;height:58px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.logo{display:flex;align-items:center;gap:9px;cursor:pointer}
+.logo-icon{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.logo-text{font-family:var(--font-d);font-size:20px;font-weight:700;color:#fff;letter-spacing:-.3px}
+.logo-text em{color:#6ECFA1;font-style:normal}
+.header-estado{font-size:11.5px;color:rgba(255,255,255,.5);flex:1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.header-estado .ok{color:#6ECFA1}
+.header-estado .warn{color:#FCD34D}
+.btn-lista-hdr{display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:rgba(255,255,255,.75);font-size:13px;font-weight:500;transition:all .18s;white-space:nowrap}
+.btn-lista-hdr:hover,.btn-lista-hdr.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.hdr-badge{background:#6ECFA1;color:var(--text);border-radius:20px;padding:1px 6px;font-size:11px;font-weight:700;min-width:18px;text-align:center;transition:transform .2s}
+.hdr-badge.empty{background:rgba(255,255,255,.2);color:rgba(255,255,255,.6)}
+.hdr-badge.pulse{animation:pulse .4s ease}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.4)}}
 
-/* TABS */
-.tabs { background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:58px; z-index:200; }
-.tabs-inner { max-width:1200px; margin:0 auto; padding:0 24px; display:flex; align-items:center; position:relative; }
-.tab { padding:13px 16px; font-size:13px; font-weight:500; color:var(--text2); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; display:flex; align-items:center; gap:7px; transition:color .15s; white-space:nowrap; user-select:none; }
-.tab:hover { color:var(--text); }
-.tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
-.tab-badge { background:var(--accent); color:#fff; border-radius:20px; padding:1px 7px; font-size:11px; font-weight:700; }
-.tab-badge.empty { background:var(--border2); color:var(--text2); }
-.tiendas-bar { flex:1; display:flex; gap:8px; align-items:center; padding:8px 0 8px 16px; }
-.tiendas-count-label { font-size:12px; color:var(--text2); }
-.tiendas-count-num { font-size:13px; font-weight:700; color:var(--accent); }
-.tiendas-ver-btn { background:none; border:1px solid var(--border2); border-radius:20px; padding:3px 10px; font-size:11.5px; font-weight:500; color:var(--text2); cursor:pointer; transition:all .15s; white-space:nowrap; }
-.tiendas-ver-btn:hover { border-color:var(--accent); color:var(--accent); }
-.tiendas-dropdown { display:none; position:absolute; top:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-top:none; border-radius:0 0 var(--r-lg) var(--r-lg); z-index:100; padding:14px 24px 16px; box-shadow:var(--sh-md); }
-.tiendas-dropdown.open { display:flex; flex-wrap:wrap; gap:10px 20px; }
-.tienda-chip { display:flex; align-items:center; gap:5px; font-size:12px; font-weight:500; color:var(--text2); white-space:nowrap; }
-.chip-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+/* ── TABS ── */
+.tabs{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:58px;z-index:200}
+.tabs-inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;align-items:center}
+.tab{padding:13px 16px;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:6px;transition:color .15s;white-space:nowrap;user-select:none}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.tab-icon{font-size:15px}
+.tab-badge{background:var(--accent);color:#fff;border-radius:20px;padding:1px 7px;font-size:11px;font-weight:700}
+.tab-badge.empty{background:var(--border2);color:var(--text2)}
+.tiendas-bar{flex:1;display:flex;align-items:center;gap:8px;padding:8px 0 8px 20px;overflow:hidden}
+.tiendas-count{font-size:12px;color:var(--text2)}
+.tiendas-count strong{color:var(--accent)}
+.btn-ver-tiendas{background:none;border:1px solid var(--border2);border-radius:20px;padding:3px 10px;font-size:11.5px;font-weight:500;color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn-ver-tiendas:hover{border-color:var(--accent);color:var(--accent)}
+.tiendas-dropdown{display:none;position:absolute;top:100%;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--r-lg) var(--r-lg);z-index:100;padding:14px 24px 16px;box-shadow:var(--sh-md)}
+.tiendas-dropdown.open{display:flex;flex-wrap:wrap;gap:10px 20px}
+.tienda-chip{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:var(--text2);white-space:nowrap}
+.chip-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 
-/* PÁGINAS */
-.page { display:none; }
-.page.active { display:block; }
+/* ── CONTENIDO PRINCIPAL ── */
+.main{max-width:1200px;margin:0 auto;padding:24px}
 
-/* HERO */
-.hero { background:var(--text); padding:52px 24px 60px; position:relative; overflow:hidden; }
-.hero::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse 80% 60% at 50% 120%, rgba(27,94,66,.45) 0%, transparent 70%); pointer-events:none; }
-.hero-inner { max-width:680px; margin:0 auto; text-align:center; position:relative; z-index:1; }
-.hero-eyebrow { display:inline-flex; align-items:center; gap:6px; background:rgba(110,207,161,.12); border:1px solid rgba(110,207,161,.2); border-radius:20px; padding:4px 12px; font-size:12px; font-weight:600; color:#6ECFA1; letter-spacing:.5px; text-transform:uppercase; margin-bottom:18px; }
-.hero-title { font-family:var(--font-d); font-size:clamp(28px,4.5vw,44px); font-weight:700; color:#fff; line-height:1.15; letter-spacing:-.5px; margin-bottom:12px; }
-.hero-title em { color:#6ECFA1; font-style:italic; }
-.hero-sub { font-size:15px; color:rgba(255,255,255,.45); margin-bottom:30px; }
-.search-wrap { position:relative; max-width:580px; margin:0 auto; }
-.search-input { width:100%; padding:16px 56px 16px 20px; font-size:15px; font-family:var(--font-b); border:1.5px solid rgba(255,255,255,.1); border-radius:50px; background:rgba(255,255,255,.06); color:#fff; outline:none; transition:all .2s; }
-.search-input::placeholder { color:rgba(255,255,255,.3); }
-.search-input:focus { border-color:rgba(110,207,161,.4); background:rgba(255,255,255,.09); box-shadow:0 0 0 4px rgba(110,207,161,.1); }
-.search-btn { position:absolute; right:8px; top:50%; transform:translateY(-50%); width:38px; height:38px; background:var(--accent); border:none; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#fff; font-size:16px; transition:background .15s; }
-.search-btn:hover { background:var(--accent2); }
-.search-hint { margin-top:10px; font-size:12px; color:rgba(255,255,255,.25); }
+/* ── BÚSQUEDA ── */
+.search-section{margin-bottom:24px}
+.search-hero{text-align:center;padding:32px 24px 24px;margin-bottom:0}
+.search-hero h1{font-family:var(--font-d);font-size:clamp(22px,3vw,32px);font-weight:700;color:var(--text);margin-bottom:6px}
+.search-hero p{font-size:14px;color:var(--text2);margin-bottom:20px}
+.search-wrap{position:relative;max-width:680px;margin:0 auto}
+.search-input{width:100%;padding:14px 50px 14px 18px;border-radius:var(--r-xl);border:2px solid var(--border2);background:var(--surface);font-size:16px;color:var(--text);outline:none;transition:all .2s;box-shadow:var(--sh-sm)}
+.search-input:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(27,94,66,.1)}
+.search-input::placeholder{color:var(--text3)}
+.search-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:10px;background:var(--accent);color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.search-btn:hover{background:var(--accent2)}
+.autocomplete-list{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r-lg);box-shadow:var(--sh-lg);z-index:500;overflow:hidden;display:none}
+.autocomplete-list.open{display:block}
+.ac-item{padding:10px 16px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;transition:background .1s}
+.ac-item:hover{background:var(--surface2)}
+.ac-nombre{font-size:13px;font-weight:500;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac-meta{font-size:11.5px;color:var(--text3);white-space:nowrap}
+.ac-precio{font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap}
 
-/* SECCIÓN BUSCAR */
-.buscar-wrap { max-width:900px; margin:0 auto; padding:24px 24px 48px; }
-.results-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-.results-label { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:1px; }
-.results-count { font-size:12px; color:var(--text3); }
+/* ── RESULTADOS ── */
+.results-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.results-label{font-size:13px;font-weight:600;color:var(--text)}
+.results-count{font-size:12px;color:var(--text2);background:var(--surface2);padding:3px 10px;border-radius:20px}
+.aviso-busqueda{background:var(--warn-light);border:1px solid #FDE68A;border-radius:var(--r);padding:10px 14px;font-size:13px;color:#92400E;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.sugerencia-busqueda{background:var(--info-light);border:1px solid #BFDBFE;border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--info);margin-bottom:12px;cursor:pointer}
+.sugerencia-busqueda:hover{background:#DBEAFE}
+.products-grid{display:flex;flex-direction:column;gap:10px}
+.product-card{background:var(--surface);border-radius:var(--r-lg);border:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:14px;transition:box-shadow .15s,border-color .15s;animation:fadeIn .25s ease both}
+.product-card:hover{box-shadow:var(--sh-md);border-color:var(--border2)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.prod-img-wrap{width:64px;height:64px;border-radius:10px;background:var(--surface2);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px}
+.prod-img{width:64px;height:64px;object-fit:cover;border-radius:10px}
+.prod-info{flex:1;min-width:0}
+.tienda-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;color:#fff;margin-bottom:4px}
+.badge-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.7);flex-shrink:0}
+.prod-nombre{font-size:13.5px;font-weight:600;color:var(--text);line-height:1.35;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prod-meta{font-size:11.5px;color:var(--text3);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.prod-historial{font-size:11px;font-weight:600}
+.hist-sube{color:var(--danger)}
+.hist-baja{color:#059669}
+.prod-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;min-width:130px}
+.prod-precio{font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--text);white-space:nowrap}
+.prod-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.btn-agregar{padding:7px 14px;border-radius:8px;background:var(--accent);color:#fff;font-size:12.5px;font-weight:600;transition:all .15s;white-space:nowrap}
+.btn-agregar:hover{background:var(--accent2)}
+.btn-agregar.agregado{background:var(--accent-light);color:var(--accent);border:1px solid var(--accent)}
+.prod-links{display:flex;gap:8px;align-items:center}
+.btn-ver{font-size:11.5px;color:var(--accent);font-weight:500;white-space:nowrap}
+.btn-ver:hover{text-decoration:underline}
+.btn-reportar{font-size:11px;color:var(--text3);padding:2px 6px;border-radius:6px;transition:all .15s}
+.btn-reportar:hover{background:var(--danger-light);color:var(--danger)}
+.btn-alerta{font-size:11px;color:var(--warn);padding:2px 6px;border-radius:6px;transition:all .15s;display:flex;align-items:center;gap:3px}
+.btn-alerta:hover{background:var(--warn-light)}
+.btn-alerta.activa{color:var(--accent)}
 
-/* LOADING */
-.loading { display:none; text-align:center; padding:64px 24px; }
-.loading-dots { display:flex; gap:6px; justify-content:center; margin-bottom:12px; }
-.dot { width:8px; height:8px; border-radius:50%; background:var(--accent); animation:bounce .8s ease infinite; }
-.dot:nth-child(2) { animation-delay:.15s; }
-.dot:nth-child(3) { animation-delay:.3s; }
-@keyframes bounce { 0%,80%,100%{transform:translateY(0);opacity:.4} 40%{transform:translateY(-8px);opacity:1} }
-.loading p { font-size:13px; color:var(--text2); }
+/* Historial inline */
+.hist-mini{display:flex;gap:3px;align-items:flex-end;height:24px;margin-top:4px}
+.hist-bar{width:6px;border-radius:2px;background:var(--accent);opacity:.3;transition:opacity .2s}
+.hist-bar.max{opacity:1}
+.hist-bar.current{background:var(--accent2);opacity:.9}
 
-/* EMPTY STATE */
-.empty-state { text-align:center; padding:72px 24px; color:var(--text2); }
-.es-icon { font-size:48px; margin-bottom:16px; display:block; opacity:.5; }
-.empty-state h3 { font-size:17px; font-weight:600; color:var(--text); margin-bottom:6px; }
-.empty-state p { font-size:14px; }
+/* ── PAGINACIÓN ── */
+.paginacion{display:flex;align-items:center;justify-content:center;gap:6px;padding:24px 0 8px;flex-wrap:wrap}
+.pag-btn{min-width:36px;height:36px;padding:0 10px;border-radius:8px;border:1.5px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.pag-btn:hover{border-color:var(--accent);color:var(--accent)}
+.pag-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.pag-btn:disabled{opacity:.35;cursor:default}
+.pag-info{font-size:12px;color:var(--text2);padding:0 8px}
 
-/* CARDS */
-.products-grid { display:flex; flex-direction:column; gap:8px; }
-.product-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:14px 18px; display:grid; grid-template-columns:72px 1fr auto; gap:14px; align-items:center; transition:border-color .15s, box-shadow .15s, transform .12s; animation:card-in .25s ease both; }
-@keyframes card-in { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:translateY(0)} }
-.product-card:hover { border-color:var(--accent); box-shadow:var(--sh-md); transform:translateY(-1px); }
-.prod-img-wrap { width:72px; height:72px; border-radius:8px; background:var(--bg); overflow:hidden; display:flex; align-items:center; justify-content:center; font-size:28px; flex-shrink:0; }
-.prod-img { width:100%; height:100%; object-fit:contain; padding:4px; }
-.prod-info { min-width:0; }
-.tienda-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600; color:#fff; margin-bottom:5px; }
-.badge-dot { width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,.55); flex-shrink:0; }
-.prod-nombre { font-size:13.5px; font-weight:600; color:var(--text); line-height:1.35; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.prod-meta { font-size:11.5px; color:var(--text3); display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.prod-historial { font-size:11px; font-weight:600; }
-.hist-sube { color:#e63946; }
-.hist-baja { color:var(--accent); }
-.hist-igual { color:var(--text3); }
-.prod-right { display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex-shrink:0; }
-.prod-precio { font-family:var(--font-d); font-size:21px; font-weight:700; color:var(--text); letter-spacing:-.5px; white-space:nowrap; }
-.prod-actions { display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
-.btn-agregar { background:var(--accent); color:#fff; border:none; padding:7px 16px; border-radius:20px; font-family:var(--font-b); font-size:12.5px; font-weight:600; cursor:pointer; transition:background .15s, transform .1s; white-space:nowrap; }
-.btn-agregar:hover { background:var(--accent2); transform:scale(1.02); }
-.btn-agregar.agregado { background:var(--surface2); color:var(--text2); }
-.btn-agregar.agregado:hover { background:var(--border2); }
-.prod-links { display:flex; align-items:center; gap:10px; }
-.btn-ver { font-size:11.5px; color:var(--accent); text-decoration:none; font-weight:500; }
-.btn-ver:hover { text-decoration:underline; }
-.btn-reportar { font-size:11px; color:var(--text3); background:none; border:none; cursor:pointer; padding:0; transition:color .15s; }
-.btn-reportar:hover { color:var(--danger); }
+/* ── LOADING ── */
+.loading{display:none;text-align:center;padding:48px 24px;color:var(--text2)}
+.loading-dots{display:flex;justify-content:center;gap:6px;margin-bottom:12px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:bounce .9s infinite}
+.dot:nth-child(2){animation-delay:.15s}
+.dot:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.empty-state{text-align:center;padding:64px 24px;color:var(--text2)}
+.es-icon{font-size:40px;display:block;margin-bottom:12px;filter:grayscale(1);opacity:.5}
+.empty-state h3{font-size:17px;font-weight:600;color:var(--text);margin-bottom:6px}
+.empty-state p{font-size:14px}
 
-/* SECCIÓN LISTA */
-.lista-wrap { max-width:1000px; margin:0 auto; padding:28px 24px 56px; }
-.lista-header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:24px; }
-.lista-title { font-family:var(--font-d); font-size:26px; font-weight:700; letter-spacing:-.4px; }
-.lista-sub { font-size:13px; color:var(--text2); margin-top:3px; }
-.lista-actions { display:flex; gap:8px; flex-wrap:wrap; }
-.btn-sm { padding:7px 14px; border-radius:8px; font-family:var(--font-b); font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; border:1.5px solid var(--border2); background:var(--surface); color:var(--text); }
-.btn-sm:hover { border-color:var(--text2); }
-.btn-sm.danger:hover { border-color:var(--danger); color:var(--danger); }
-.btn-sm.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
-.btn-sm.primary:hover { background:var(--accent2); }
-.btn-sm.whatsapp { background:var(--wa); border-color:var(--wa); color:#fff; }
-.btn-sm.whatsapp:hover { background:#1ebe5a; }
-.metricas { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px; }
-.metrica { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px 20px; }
-.metrica-label { font-size:11px; font-weight:600; color:var(--text2); text-transform:uppercase; letter-spacing:.6px; margin-bottom:5px; }
-.metrica-val { font-family:var(--font-d); font-size:26px; font-weight:700; letter-spacing:-.5px; }
-.tiendas-grid { display:grid; grid-template-columns:1fr; gap:12px; }
-.tienda-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; box-shadow:var(--sh-sm); }
-.tienda-card-hdr { padding:14px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); background:var(--bg); }
-.tienda-card-nombre { display:flex; align-items:center; gap:9px; font-size:14px; font-weight:700; }
-.tienda-card-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-.tienda-card-subtotal { font-family:var(--font-d); font-size:17px; font-weight:700; color:var(--accent); }
-.lista-item { display:grid; grid-template-columns:52px 1fr auto; gap:10px; align-items:center; padding:10px 18px; border-bottom:1px solid var(--border); }
-.lista-item:last-child { border-bottom:none; }
-.item-img-wrap { width:52px; height:52px; border-radius:7px; background:var(--bg); overflow:hidden; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
-.item-img { width:100%; height:100%; object-fit:contain; padding:4px; }
-.item-info { min-width:0; }
-.item-nombre { font-size:12.5px; font-weight:600; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:2px; }
-.item-precio { font-size:12px; color:var(--text2); }
-.item-controls { display:flex; align-items:center; gap:6px; flex-shrink:0; }
-.qty-wrap { display:flex; align-items:center; gap:3px; background:var(--bg); border:1px solid var(--border2); border-radius:7px; padding:3px 6px; }
-.qty-btn { width:22px; height:22px; border:none; background:none; cursor:pointer; font-size:15px; color:var(--text); display:flex; align-items:center; justify-content:center; border-radius:4px; transition:background .12s; line-height:1; }
-.qty-btn:hover { background:var(--border); }
-.qty-val { font-size:13px; font-weight:700; min-width:20px; text-align:center; }
-.btn-quitar { width:26px; height:26px; border:none; background:none; cursor:pointer; color:var(--text2); font-size:18px; display:flex; align-items:center; justify-content:center; border-radius:5px; transition:all .12s; line-height:1; }
-.btn-quitar:hover { background:#FDE8E8; color:var(--danger); }
-.tienda-card-ftr { padding:10px 18px; background:var(--bg); display:flex; align-items:center; justify-content:space-between; }
-.tienda-card-ftr-info { font-size:12px; color:var(--text2); }
-.ir-tienda { font-size:12px; color:var(--accent); text-decoration:none; font-weight:600; }
-.ir-tienda:hover { text-decoration:underline; }
-.lista-footer { background:var(--surface); border:1px solid var(--border); border-radius:var(--r-lg); padding:18px 24px; display:flex; align-items:center; justify-content:space-between; margin-top:16px; box-shadow:var(--sh-sm); }
-.footer-total-label { font-size:12px; color:var(--text2); margin-bottom:3px; }
-.footer-total-val { font-family:var(--font-d); font-size:30px; font-weight:700; letter-spacing:-.5px; }
-.footer-btns { display:flex; gap:8px; }
-.lista-vacia { text-align:center; padding:80px 24px; }
-.lista-vacia-icon { font-size:56px; margin-bottom:18px; opacity:.3; display:block; }
-.lista-vacia h3 { font-family:var(--font-d); font-size:22px; font-weight:700; margin-bottom:8px; }
-.lista-vacia p { font-size:14px; color:var(--text2); }
-.btn-ir-buscar { display:inline-block; margin-top:24px; background:var(--accent); color:#fff; border:none; padding:11px 28px; border-radius:50px; font-family:var(--font-b); font-size:14px; font-weight:600; cursor:pointer; transition:background .15s; }
-.btn-ir-buscar:hover { background:var(--accent2); }
+/* ── LISTA ── */
+.lista-header{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:24px}
+.lista-title{font-family:var(--font-d);font-size:22px;font-weight:700;color:var(--text)}
+.lista-subtitle{font-size:13px;color:var(--text2);margin-top:2px}
+.lista-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn-sm{padding:7px 14px;border-radius:8px;border:1.5px solid var(--border2);background:var(--surface);font-size:12.5px;font-weight:500;color:var(--text2);transition:all .15s}
+.btn-sm:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm.danger:hover{border-color:var(--danger);color:var(--danger)}
+.lista-metricas{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.metrica-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;text-align:center}
+.metrica-label{font-size:11px;font-weight:500;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px}
+.metrica-val{font-family:var(--font-d);font-size:26px;font-weight:700;color:var(--text)}
+.tiendas-grid{display:grid;grid-template-columns:1fr;gap:12px}
+.tienda-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.tienda-card-header{padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.tienda-card-nombre{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px}
+.tienda-card-total{font-family:var(--font-d);font-size:17px;font-weight:700;color:var(--accent)}
+.lista-item{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border)}
+.lista-item:last-child{border-bottom:none}
+.li-img{width:40px;height:40px;border-radius:8px;object-fit:cover;background:var(--surface2);flex-shrink:0}
+.li-nombre{flex:1;font-size:13px;font-weight:500;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li-precio{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap}
+.li-controls{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.cnt-btn{width:26px;height:26px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);font-size:14px;font-weight:600;color:var(--text2);transition:all .12s;display:flex;align-items:center;justify-content:center}
+.cnt-btn:hover{border-color:var(--accent);color:var(--accent)}
+.cnt-num{width:28px;text-align:center;font-size:13px;font-weight:600}
+.li-del{width:26px;height:26px;border-radius:6px;font-size:14px;color:var(--text3);transition:all .12s;display:flex;align-items:center;justify-content:center}
+.li-del:hover{background:var(--danger-light);color:var(--danger)}
+.tienda-footer{padding:10px 16px;display:flex;align-items:center;justify-content:space-between}
+.tienda-footer-items{font-size:12px;color:var(--text2)}
+.btn-ver-tienda{font-size:12px;color:var(--accent);font-weight:500}
+.btn-ver-tienda:hover{text-decoration:underline}
 
-/* SECCIÓN ACERCA DE */
-.acerca-wrap { max-width:780px; margin:0 auto; padding:40px 24px 64px; }
-.acerca-wrap h1 { font-family:var(--font-d); font-size:32px; font-weight:700; margin-bottom:8px; letter-spacing:-.4px; }
-.acerca-wrap .lead { font-size:16px; color:var(--text2); margin-bottom:32px; line-height:1.6; }
-.acerca-section { margin-bottom:32px; }
-.acerca-section h2 { font-size:16px; font-weight:700; margin-bottom:10px; color:var(--text); }
-.acerca-section p { font-size:14px; color:var(--text2); line-height:1.7; margin-bottom:8px; }
-.acerca-section ul { padding-left:18px; }
-.acerca-section ul li { font-size:14px; color:var(--text2); line-height:1.7; margin-bottom:4px; }
-.aviso-legal { background:var(--surface2); border:1px solid var(--border); border-radius:var(--r-lg); padding:16px 20px; margin-top:32px; }
-.aviso-legal p { font-size:12.5px; color:var(--text2); line-height:1.6; }
-.aviso-legal strong { color:var(--text); }
+/* ── ALERTAS ── */
+.alertas-section{margin-top:28px;padding-top:20px;border-top:1px solid var(--border)}
+.section-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.alerta-item{background:var(--warn-light);border:1px solid #FDE68A;border-radius:var(--r);padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.alerta-desc{flex:1;font-size:13px;color:#92400E}
+.alerta-del{color:var(--warn);font-size:16px;padding:4px}
+.alerta-del:hover{color:var(--danger)}
+.alerta-vacia{font-size:13px;color:var(--text3);text-align:center;padding:16px}
 
-/* MODAL REPORTE */
-.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; align-items:center; justify-content:center; padding:20px; }
-.modal-overlay.open { display:flex; }
-.modal { background:var(--surface); border-radius:var(--r-lg); padding:24px; width:100%; max-width:440px; box-shadow:var(--sh-lg); }
-.modal-title { font-size:16px; font-weight:700; margin-bottom:4px; }
-.modal-sub { font-size:12.5px; color:var(--text2); margin-bottom:18px; }
-.modal-prod { background:var(--bg); border-radius:var(--r); padding:10px 14px; margin-bottom:16px; font-size:13px; font-weight:500; color:var(--text); }
-.modal-label { font-size:12px; font-weight:600; color:var(--text2); margin-bottom:5px; display:block; }
-.modal-select, .modal-textarea { width:100%; padding:9px 12px; border:1.5px solid var(--border2); border-radius:var(--r); font-family:var(--font-b); font-size:13px; color:var(--text); background:var(--surface); margin-bottom:14px; outline:none; transition:border-color .15s; }
-.modal-select:focus, .modal-textarea:focus { border-color:var(--accent); }
-.modal-textarea { resize:vertical; min-height:80px; }
-.modal-btns { display:flex; gap:8px; justify-content:flex-end; }
-.btn-modal-cancel { padding:8px 16px; border-radius:8px; border:1.5px solid var(--border2); background:var(--surface); color:var(--text2); font-family:var(--font-b); font-size:13px; cursor:pointer; }
-.btn-modal-send { padding:8px 20px; border-radius:8px; border:none; background:var(--accent); color:#fff; font-family:var(--font-b); font-size:13px; font-weight:600; cursor:pointer; transition:background .15s; }
-.btn-modal-send:hover { background:var(--accent2); }
+/* ── COMPRA INTELIGENTE ── */
+.ci-hero{text-align:center;padding:28px 0 20px}
+.ci-hero h2{font-family:var(--font-d);font-size:24px;font-weight:700;margin-bottom:6px}
+.ci-hero p{font-size:14px;color:var(--text2)}
+.ci-wrap{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+@media(max-width:680px){.ci-wrap{grid-template-columns:1fr}}
+.ci-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+.ci-panel-title{padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:7px}
+.ci-input-area{padding:16px}
+.ci-textarea{width:100%;min-height:220px;padding:12px 14px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:13.5px;line-height:1.6;color:var(--text);background:var(--bg);resize:vertical;outline:none;transition:border-color .15s}
+.ci-textarea:focus{border-color:var(--accent)}
+.ci-textarea::placeholder{color:var(--text3)}
+.ci-ejemplo{font-size:12px;color:var(--text3);margin-top:8px;line-height:1.6}
+.ci-ejemplo strong{color:var(--text2);display:block;margin-bottom:2px}
+.btn-analizar{width:100%;margin-top:12px;padding:13px;border-radius:var(--r);background:var(--accent);color:#fff;font-size:14px;font-weight:600;transition:background .15s}
+.btn-analizar:hover{background:var(--accent2)}
+.btn-analizar:disabled{opacity:.5;cursor:not-allowed}
+.ci-resultados{display:none}
+.ci-estrategias{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px}
+@media(max-width:600px){.ci-estrategias{grid-template-columns:1fr}}
+.est-card{border:2px solid var(--border);border-radius:var(--r-lg);padding:14px;cursor:pointer;transition:all .15s;position:relative}
+.est-card.active{border-color:var(--accent);background:var(--accent-light)}
+.est-card:hover:not(.active){border-color:var(--border2)}
+.est-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-bottom:4px}
+.est-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px}
+.est-total{font-family:var(--font-d);font-size:20px;font-weight:700;color:var(--accent)}
+.est-meta{font-size:12px;color:var(--text2);margin-top:4px}
+.est-recomendado{position:absolute;top:-8px;right:10px;background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
+.ci-tabla{width:100%;border-collapse:collapse;font-size:13px}
+.ci-tabla th{text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;padding:8px 10px;border-bottom:2px solid var(--border)}
+.ci-tabla td{padding:10px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.ci-tabla tr:last-child td{border-bottom:none}
+.ci-linea-original{font-size:12px;color:var(--text3)}
+.ci-match-nombre{font-size:13px;font-weight:500;color:var(--text)}
+.ci-match-tienda{font-size:11.5px;color:var(--text2)}
+.ci-confianza{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:11px;font-weight:600}
+.conf-alta{background:#D1FAE5;color:#065F46}
+.conf-media{background:#FEF3C7;color:#92400E}
+.conf-baja{background:#FEE2E2;color:#991B1B}
+.ci-precio{font-weight:700;color:var(--text);white-space:nowrap}
+.ci-sin-match{color:var(--text3);font-size:12px;font-style:italic}
+.ci-loading{text-align:center;padding:32px;display:none}
 
-/* TOAST */
-.toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--text); color:#fff; padding:11px 22px; border-radius:50px; font-size:13px; font-weight:500; z-index:2000; transition:transform .3s cubic-bezier(.175,.885,.32,1.275); pointer-events:none; white-space:nowrap; box-shadow:0 8px 32px rgba(0,0,0,.2); }
-.toast.show { transform:translateX(-50%) translateY(0); }
+/* ── ACERCA ── */
+.acerca{max-width:700px}
+.acerca h2{font-family:var(--font-d);font-size:22px;font-weight:700;margin-bottom:12px}
+.acerca p{font-size:14px;color:var(--text2);margin-bottom:14px;line-height:1.7}
+.acerca ul{margin-left:20px;margin-bottom:14px}
+.acerca li{font-size:14px;color:var(--text2);margin-bottom:6px;line-height:1.6}
+.acerca strong{color:var(--text)}
+.aviso-legal{background:var(--warn-light);border:1px solid #FDE68A;border-radius:var(--r);padding:14px 16px;font-size:13px;color:#92400E;line-height:1.6}
 
-/* AVISO INFERIOR */
-.aviso-inferior { background:var(--surface); border-top:1px solid var(--border); padding:12px 24px; text-align:center; font-size:11.5px; color:var(--text3); }
-.paginacion { display:flex; align-items:center; justify-content:center; gap:6px; padding:24px 0 8px; flex-wrap:wrap; }
-.pag-btn { min-width:36px; height:36px; padding:0 10px; border-radius:8px; border:1.5px solid var(--border2); background:var(--surface); color:var(--text); font-family:var(--font-b); font-size:13px; font-weight:500; cursor:pointer; transition:all .15s; }
-.pag-btn:hover { border-color:var(--accent); color:var(--accent); }
-.pag-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
-.pag-btn:disabled { opacity:.35; cursor:default; }
-.pag-info { font-size:12px; color:var(--text2); padding:0 8px; }
-.aviso-inferior a { color:var(--accent); text-decoration:none; }
-.aviso-inferior a:hover { text-decoration:underline; }
+/* ── MODAL HISTORIAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--r-xl);padding:24px;max-width:480px;width:100%;box-shadow:var(--sh-lg);position:relative;max-height:80vh;overflow-y:auto}
+.modal-close{position:absolute;top:16px;right:16px;font-size:20px;color:var(--text2);background:var(--surface2);width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.modal-close:hover{background:var(--danger-light);color:var(--danger)}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:4px;padding-right:36px}
+.modal-tienda{font-size:12px;color:var(--text2);margin-bottom:20px}
+.hist-chart{display:flex;align-items:flex-end;gap:4px;height:80px;margin-bottom:12px;padding:0 2px}
+.hc-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.hc-bar{width:100%;background:var(--accent);border-radius:3px 3px 0 0;opacity:.6;transition:opacity .15s;min-height:4px}
+.hc-bar:last-child,.hc-bar.max{opacity:1}
+.hc-label{font-size:9px;color:var(--text3);text-align:center}
+.hist-summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px}
+.hs-card{background:var(--surface2);border-radius:var(--r);padding:12px;text-align:center}
+.hs-label{font-size:11px;color:var(--text3);margin-bottom:4px}
+.hs-val{font-size:16px;font-weight:700;color:var(--text)}
+.hs-val.up{color:var(--danger)}
+.hs-val.down{color:#059669}
 
-/* RESPONSIVE */
-@media (max-width:700px) {
-  .tiendas-grid { grid-template-columns:1fr; }
-  .metricas { grid-template-columns:repeat(3,1fr); }
-  .product-card { grid-template-columns:56px 1fr; }
-  .prod-right { grid-column:1/-1; flex-direction:row; justify-content:space-between; align-items:center; }
-  .header-stats { display:none; }
-  .hero { padding:40px 20px 48px; }
-  .acerca-wrap { padding:28px 20px 48px; }
+/* ── MODAL ALERTA ── */
+.modal-alerta-form{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.alerta-input-row{display:flex;gap:8px;align-items:center}
+.alerta-prefix{font-size:13px;color:var(--text2);white-space:nowrap}
+.alerta-price-input{flex:1;padding:9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:14px;color:var(--text);outline:none;transition:border-color .15s}
+.alerta-price-input:focus{border-color:var(--accent)}
+.btn-guardar-alerta{padding:10px 20px;background:var(--accent);color:#fff;border-radius:var(--r);font-size:14px;font-weight:600;transition:background .15s}
+.btn-guardar-alerta:hover{background:var(--accent2)}
+
+/* ── MODAL REPORTE ── */
+.reporte-form{margin-top:16px;display:flex;flex-direction:column;gap:10px}
+.reporte-input{padding:9px 12px;border:1.5px solid var(--border2);border-radius:var(--r);font-size:13px;color:var(--text);outline:none;transition:border-color .15s;background:var(--surface)}
+.reporte-input:focus{border-color:var(--accent)}
+.btn-enviar-reporte{padding:10px 20px;background:var(--accent);color:#fff;border-radius:var(--r);font-size:14px;font-weight:600}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:#fff;padding:10px 18px;border-radius:var(--r);font-size:13px;font-weight:500;z-index:9999;transition:transform .3s ease;pointer-events:none;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── AVISO INFERIOR ── */
+.aviso-inferior{background:var(--surface);border-top:1px solid var(--border);padding:12px 24px;text-align:center;font-size:11.5px;color:var(--text3)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:640px){
+  .header-estado{display:none}
+  .main{padding:16px}
+  .search-hero{padding:20px 0 16px}
+  .product-card{flex-wrap:wrap;gap:10px}
+  .prod-right{flex-direction:row;align-items:center;justify-content:space-between;min-width:100%;width:100%}
+  .prod-img-wrap{width:52px;height:52px}
+  .prod-img{width:52px;height:52px}
+  .lista-metricas{grid-template-columns:1fr 1fr}
+  .ci-estrategias{grid-template-columns:1fr}
+  .hist-summary{grid-template-columns:1fr 1fr}
+  .tiendas-bar{display:none}
 }
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
 <header class="header">
   <div class="header-inner">
-    <a class="logo" href="#" onclick="mostrarTab('buscar');return false;">
+    <div class="logo" onclick="mostrarTab('buscar');window.scrollTo(0,0)">
       <div class="logo-icon">🦷</div>
       <div class="logo-text">Odonto<em>Precio</em></div>
-    </a>
-    <div class="header-stats" id="stats-text">Cargando...</div>
+    </div>
+    <div class="header-estado" id="header-estado">Cargando...</div>
     <button class="btn-lista-hdr" id="btn-lista-hdr" onclick="mostrarTab('lista')">
-      🛒 Mi lista
-      <span class="hdr-badge empty" id="hdr-badge">0</span>
+      🛒 Mi lista <span class="hdr-badge empty" id="hdr-badge">0</span>
     </button>
   </div>
 </header>
 
-<!-- TABS -->
-<div class="tabs">
+<div class="tabs" style="position:relative">
   <div class="tabs-inner">
     <div class="tab active" id="tab-buscar" onclick="mostrarTab('buscar')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      Buscar
+      <span class="tab-icon">🔍</span> Buscar
     </div>
     <div class="tab" id="tab-lista" onclick="mostrarTab('lista')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-      Mi lista
+      <span class="tab-icon">🛒</span> Mi lista
       <span class="tab-badge empty" id="tab-badge">0</span>
     </div>
+    <div class="tab" id="tab-ci" onclick="mostrarTab('ci')">
+      <span class="tab-icon">⚡</span> Compra inteligente
+    </div>
     <div class="tab" id="tab-acerca" onclick="mostrarTab('acerca')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-      Acerca de
+      <span class="tab-icon">ℹ️</span> Acerca de
     </div>
     <div class="tiendas-bar">
-      <span class="tiendas-count-label">Comparando en</span>
-      <span class="tiendas-count-num">{{ tiendas|length }}</span>
-      <span class="tiendas-count-label">distribuidoras</span>
-      <button class="tiendas-ver-btn" onclick="toggleVerTiendas()" id="btn-ver-tiendas">Ver cuáles →</button>
+      <span class="tiendas-count">Comparando en <strong id="tiendas-num">25</strong> distribuidoras</span>
+      <button class="btn-ver-tiendas" id="btn-ver-tiendas" onclick="toggleTiendas()">Ver cuáles →</button>
     </div>
-    <div class="tiendas-dropdown" id="tiendas-dropdown">
-      {% for t in tiendas %}
-      <div class="tienda-chip">
-        <div class="chip-dot" style="background:{{ t.color }}"></div>
-        {{ t.nombre }}
-      </div>
-      {% endfor %}
-    </div>
+  </div>
+  <div class="tiendas-dropdown" id="tiendas-dropdown">
+    {% for t in tiendas %}
+    <span class="tienda-chip">
+      <span class="chip-dot" style="background:{{t.color}}"></span>
+      {{t.nombre}}
+    </span>
+    {% endfor %}
   </div>
 </div>
 
-<!-- ══ BUSCAR ══ -->
-<div class="page active" id="page-buscar">
-  <div class="hero">
-    <div class="hero-inner">
-      <div class="hero-eyebrow">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-        Comparador de precios
-      </div>
-      <h1 class="hero-title">Encontrá el mejor precio<br>en <em>insumos dentales</em></h1>
-      <p class="hero-sub">Comparás todas las distribuidoras en un solo lugar</p>
-      <div class="search-wrap">
-        <input type="text" class="search-input" id="search-input"
-          placeholder="Ej: composite, anestesia, fresa..."
-          autocomplete="off" spellcheck="false">
-        <button class="search-btn" onclick="buscarDesdeBtn()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        </button>
-      </div>
-      <div class="search-hint">Escribí al menos 2 caracteres para buscar</div>
-    </div>
-  </div>
+<div class="main">
 
-  <div class="buscar-wrap">
-    <div class="results-header">
-      <div class="results-label" id="results-label">Buscá un producto</div>
-      <div class="results-count" id="results-count"></div>
+  <!-- ═══ TAB BUSCAR ═══ -->
+  <div id="view-buscar">
+    <div class="search-hero">
+      <h1>Comparador de insumos dentales</h1>
+      <p>Encontrá el mejor precio entre 25 distribuidoras argentinas</p>
     </div>
+    <div class="search-section">
+      <div class="search-wrap">
+        <input type="search" class="search-input" id="search-input"
+          placeholder="Ej: composite 3M, gutapercha, anestesia mepivacaina..."
+          autocomplete="off" spellcheck="false">
+        <button class="search-btn" onclick="dispararBusqueda()">🔍</button>
+        <div class="autocomplete-list" id="ac-list"></div>
+      </div>
+    </div>
+
+    <div id="aviso-busqueda" class="aviso-busqueda" style="display:none">
+      <span>💡</span><span id="aviso-texto"></span>
+    </div>
+    <div id="sugerencia-busqueda" class="sugerencia-busqueda" style="display:none" onclick="usarSugerencia()">
+      <span id="sugerencia-texto"></span>
+    </div>
+
     <div class="loading" id="loading">
-      <div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <div class="loading-dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
       <p>Buscando en todas las distribuidoras...</p>
     </div>
-    <div class="products-grid" id="products-grid">
-      <div class="empty-state">
-        <span class="es-icon">🔍</span>
-        <h3>Buscá un producto</h3>
-        <p>Escribí en el buscador para comparar precios<br>de todas las distribuidoras al mismo tiempo</p>
-      </div>
+
+    <div id="results-header" class="results-header" style="display:none">
+      <span class="results-label" id="results-label"></span>
+      <span class="results-count" id="results-count"></span>
     </div>
+
+    <div class="products-grid" id="products-grid"></div>
     <div class="paginacion" id="paginacion"></div>
   </div>
-</div>
 
-<!-- ══ LISTA ══ -->
-<div class="page" id="page-lista">
-  <div class="lista-wrap">
+  <!-- ═══ TAB LISTA ═══ -->
+  <div id="view-lista" style="display:none">
     <div class="lista-header">
       <div>
         <div class="lista-title">Mi lista de compras</div>
-        <div class="lista-sub" id="lista-sub">0 productos · 0 distribuidoras</div>
+        <div class="lista-subtitle" id="lista-subtitle">0 productos · 0 distribuidoras</div>
       </div>
       <div class="lista-actions" id="lista-actions" style="display:none">
         <button class="btn-sm danger" onclick="limpiarLista()">🗑 Vaciar carrito</button>
-        <button class="btn-sm" onclick="copiarResumen()">📋 Copiar</button>
+        <button class="btn-sm" onclick="copiarResumen()">📋 Copiar resumen</button>
       </div>
     </div>
-    <div id="lista-metricas" style="display:none">
-      <div class="metricas">
-        <div class="metrica"><div class="metrica-label">Total estimado</div><div class="metrica-val" id="metrica-total">$0</div></div>
-        <div class="metrica"><div class="metrica-label">Distribuidoras</div><div class="metrica-val" id="metrica-tiendas">0</div></div>
-        <div class="metrica"><div class="metrica-label">Productos</div><div class="metrica-val" id="metrica-productos">0</div></div>
+    <div class="lista-metricas" id="lista-metricas" style="display:none">
+      <div class="metrica-card">
+        <div class="metrica-label">Total estimado</div>
+        <div class="metrica-val" id="m-total">$0</div>
+      </div>
+      <div class="metrica-card">
+        <div class="metrica-label">Distribuidoras</div>
+        <div class="metrica-val" id="m-tiendas">0</div>
+      </div>
+      <div class="metrica-card">
+        <div class="metrica-label">Productos</div>
+        <div class="metrica-val" id="m-productos">0</div>
       </div>
     </div>
-    <div id="lista-contenido"></div>
-    <div class="lista-footer" id="lista-footer" style="display:none">
-      <div>
-        <div class="footer-total-label">Total estimado</div>
-        <div class="footer-total-val" id="footer-total">$0</div>
+    <div id="lista-contenido">
+      <div class="empty-state">
+        <span class="es-icon">🛒</span>
+        <h3>Tu lista está vacía</h3>
+        <p>Buscá productos y agregálos con el botón "+ Agregar"</p>
       </div>
-      <div class="footer-btns">
-        <button class="btn-sm" onclick="copiarResumen()">📋 Copiar</button>
+    </div>
+
+    <!-- Alertas de precio -->
+    <div class="alertas-section">
+      <div class="section-title">🔔 Alertas de precio</div>
+      <div id="alertas-lista">
+        <div class="alerta-vacia">No tenés alertas configuradas. Hacé clic en "🔔 Alerta" en cualquier producto.</div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- ══ ACERCA DE ══ -->
-<div class="page" id="page-acerca">
-  <div class="acerca-wrap">
-    <h1>Acerca de OdontoPrecio</h1>
-    <p class="lead">Comparador de precios de insumos odontológicos de Argentina. Buscamos los precios de las principales distribuidoras del país para que puedas encontrar el mejor precio sin perder tiempo.</p>
-
-    <div class="acerca-section">
-      <h2>🦷 ¿Qué es OdontoPrecio?</h2>
-      <p>OdontoPrecio es una herramienta gratuita para odontólogos y profesionales de la salud bucal que permite comparar precios de insumos dentales en más de 25 distribuidoras de Argentina en tiempo real.</p>
-      <p>No vendemos productos ni cobramos comisiones. Simplemente mostramos los precios públicos de cada tienda para que puedas tomar la mejor decisión.</p>
+  <!-- ═══ TAB COMPRA INTELIGENTE ═══ -->
+  <div id="view-ci" style="display:none">
+    <div class="ci-hero">
+      <h2>⚡ Compra Inteligente</h2>
+      <p>Pegá tu lista de compras y encontramos los mejores precios automáticamente</p>
     </div>
+    <div class="ci-wrap">
+      <div class="ci-panel">
+        <div class="ci-panel-title">📋 Tu lista de compras</div>
+        <div class="ci-input-area">
+          <textarea class="ci-textarea" id="ci-textarea"
+            placeholder="Un producto por línea. Mientras más detalle, mejor resultado."></textarea>
+          <div class="ci-ejemplo">
+            <strong>Ejemplo:</strong>
+            Composite 3M Filtek Z350 A2<br>
+            Guantes nitrilo M negros x100<br>
+            Anestesia mepivacaina x50<br>
+            Fresa redonda larga FG
+          </div>
+          <button class="btn-analizar" id="btn-analizar" onclick="analizarLista()">
+            ⚡ Analizar lista
+          </button>
+        </div>
+      </div>
 
-    <div class="acerca-section">
-      <h2>🏪 ¿Qué distribuidoras incluimos?</h2>
-      <p>Actualmente comparamos precios de las siguientes distribuidoras:</p>
-      <ul id="lista-tiendas-acerca">{% for t in tiendas %}<li>{{ t.nombre }}</li>{% endfor %}</ul>
-      <p style="margin-top:8px">¿Falta alguna distribuidora? Escribinos a <strong>odontoprecio@gmail.com</strong> y la agregamos.</p>
+      <div class="ci-panel" id="ci-resultados-panel" style="display:none">
+        <div class="ci-panel-title">📊 Resultados</div>
+        <div style="padding:16px">
+          <div class="ci-estrategias" id="ci-estrategias"></div>
+          <div style="overflow-x:auto">
+            <table class="ci-tabla" id="ci-tabla">
+              <thead>
+                <tr>
+                  <th>Tu pedido</th>
+                  <th>Producto encontrado</th>
+                  <th>Confianza</th>
+                  <th>Tienda</th>
+                  <th>Precio</th>
+                </tr>
+              </thead>
+              <tbody id="ci-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
-
-    <div class="acerca-section">
-      <h2>🔄 ¿Con qué frecuencia se actualizan los precios?</h2>
-      <p>Los precios se actualizan automáticamente todos los días. Como los precios en Argentina cambian frecuentemente, te recomendamos siempre verificar el precio final en la tienda antes de comprar.</p>
+    <div class="ci-loading" id="ci-loading">
+      <div class="loading-dots">
+        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+      </div>
+      <p>Analizando tu lista...</p>
     </div>
+  </div>
 
-    <div class="acerca-section">
-      <h2>💡 ¿Cómo usar OdontoPrecio?</h2>
+  <!-- ═══ TAB ACERCA ═══ -->
+  <div id="view-acerca" style="display:none">
+    <div class="acerca">
+      <h2>Sobre OdontoPrecio</h2>
+      <p>OdontoPrecio compara precios de insumos dentales en 25 distribuidoras argentinas en tiempo real. Los precios se actualizan automáticamente todos los días.</p>
+      <p>Como los precios en Argentina cambian frecuentemente, te recomendamos verificar el precio final en la tienda antes de comprar.</p>
+      <h2 style="margin-top:24px">¿Cómo usar?</h2>
       <ul>
-        <li>Escribí el nombre del insumo en el buscador (ej: "composite", "anestesia", "fresa")</li>
-        <li>Aparecen los resultados ordenados de menor a mayor precio</li>
-        <li>Hacé clic en "+ Agregar" para sumar productos a tu lista de compras</li>
-        <li>En "Mi lista" podés ver el total por distribuidora, copiar el resumen y compartirlo</li>
+        <li>Buscá un producto por nombre, marca o modelo</li>
+        <li>Agregá lo que necesitás a tu lista con "+ Agregar"</li>
+        <li>Usá <strong>Compra Inteligente</strong> para optimizar tu pedido mensual</li>
+        <li>Configurá <strong>alertas de precio</strong> para recibir aviso cuando baje</li>
       </ul>
-    </div>
-
-    <div class="acerca-section">
-      <h2>⚠️ Precios incorrectos</h2>
-      <p>Si encontrás un precio que no corresponde, podés reportarlo usando el botón "Reportar precio" en cada resultado. Revisamos todos los reportes y corregimos los errores.</p>
-    </div>
-
-    <div class="aviso-legal">
-      <p><strong>Aviso legal:</strong> Los precios mostrados en OdontoPrecio son obtenidos automáticamente de los sitios web de cada distribuidora y tienen carácter informativo. Pueden no estar actualizados al momento de la consulta. OdontoPrecio no se responsabiliza por diferencias entre los precios mostrados y los precios finales de cada tienda. Siempre verificá el precio antes de realizar una compra. No tenemos ninguna relación comercial con las distribuidoras listadas.</p>
+      <div class="aviso-legal">
+        <strong>Aviso legal:</strong> Los precios mostrados son obtenidos automáticamente y tienen carácter informativo. Pueden no estar actualizados al momento de la consulta. OdontoPrecio no se responsabiliza por diferencias entre los precios mostrados y los precios finales. No tenemos relación comercial con las distribuidoras listadas.
+      </div>
     </div>
   </div>
-</div>
 
-<!-- MODAL REPORTE -->
-<div class="modal-overlay" id="modal-reporte">
+</div><!-- /main -->
+
+<!-- Modales -->
+<div class="modal-overlay" id="modal-historial" onclick="if(event.target===this)cerrarModal('historial')">
   <div class="modal">
-    <div class="modal-title">Reportar precio incorrecto</div>
-    <div class="modal-sub">Ayudanos a mantener los precios actualizados</div>
-    <div class="modal-prod" id="modal-prod-nombre">—</div>
-    <label class="modal-label">¿Cuál es el problema?</label>
-    <select class="modal-select" id="modal-motivo">
-      <option value="precio_diferente">El precio es diferente al de la tienda</option>
-      <option value="sin_stock">El producto está sin stock</option>
-      <option value="producto_inexistente">El producto ya no existe</option>
-      <option value="otro">Otro</option>
-    </select>
-    <label class="modal-label">Comentario (opcional)</label>
-    <textarea class="modal-textarea" id="modal-comentario" placeholder="Ej: el precio real es $50.000, vi la oferta en la tienda..."></textarea>
-    <div class="modal-btns">
-      <button class="btn-modal-cancel" onclick="cerrarReporte()">Cancelar</button>
-      <button class="btn-modal-send" onclick="enviarReporte()">Enviar reporte</button>
+    <button class="modal-close" onclick="cerrarModal('historial')">✕</button>
+    <h3 id="mh-nombre"></h3>
+    <div class="modal-tienda" id="mh-tienda"></div>
+    <div class="hist-chart" id="mh-chart"></div>
+    <div class="hist-summary" id="mh-summary"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-alerta" onclick="if(event.target===this)cerrarModal('alerta')">
+  <div class="modal">
+    <button class="modal-close" onclick="cerrarModal('alerta')">✕</button>
+    <h3>🔔 Alerta de precio</h3>
+    <div class="modal-tienda" id="ma-nombre"></div>
+    <div class="modal-alerta-form">
+      <p style="font-size:13px;color:var(--text2)">Te avisamos cuando el precio baje de:</p>
+      <div class="alerta-input-row">
+        <span class="alerta-prefix">$</span>
+        <input type="number" class="alerta-price-input" id="alerta-precio" placeholder="45000" min="1">
+      </div>
+      <button class="btn-guardar-alerta" onclick="guardarAlerta()">Guardar alerta</button>
     </div>
   </div>
 </div>
 
-<!-- AVISO INFERIOR -->
-<div class="aviso-inferior" id="aviso-inferior">
-  Los precios son informativos y pueden variar. Verificá en la tienda antes de comprar.
-  <a href="#" onclick="mostrarTab('acerca');return false;">Más información</a>
+<div class="modal-overlay" id="modal-reporte" onclick="if(event.target===this)cerrarModal('reporte')">
+  <div class="modal">
+    <button class="modal-close" onclick="cerrarModal('reporte')">✕</button>
+    <h3>Reportar precio</h3>
+    <div class="modal-tienda" id="mr-nombre"></div>
+    <div class="reporte-form">
+      <input type="text" class="reporte-input" id="mr-comentario"
+        placeholder="Ej: El precio real es $X, o 'producto discontinuado'">
+      <button class="btn-enviar-reporte" onclick="enviarReporte()">Enviar reporte</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
+<div class="aviso-inferior">
+  Los precios son informativos y pueden variar. Verificá en la tienda antes de comprar.
+</div>
+
 <script>
 // ── ESTADO ──
-let lista = JSON.parse(localStorage.getItem('odontoprecio_lista') || '[]');
-lista = lista.map(p => ({...p, cantidad: p.cantidad || 1}));
-let ordenTiendas = JSON.parse(localStorage.getItem('odontoprecio_orden_tiendas') || '[]');
+let lista = [];
+let ordenTiendas = [];
+try {
+  lista = JSON.parse(localStorage.getItem('odontoprecio_lista') || '[]');
+  lista = lista.map(p => ({...p, cantidad: p.cantidad || 1}));
+  ordenTiendas = JSON.parse(localStorage.getItem('odontoprecio_orden_tiendas') || '[]');
+} catch(e) { lista = []; ordenTiendas = []; }
+
 let searchTimer = null;
-let productoReporte = null;
+let acTimer = null;
 let queryActual = '';
-let paginaActual = 0;
 let totalResultados = 0;
 const LIMIT = 30;
+const _prodMap = {};
+let productoReporte = null;
+let productoAlerta = null;
+let alertas = [];
+try { alertas = JSON.parse(localStorage.getItem('odontoprecio_alertas') || '[]'); } catch(e) { alertas = []; }
 
-// ── INIT ──
-document.addEventListener('DOMContentLoaded', () => {
-  actualizarBadges();
-  cargarStats();
+function guardarLista() {
+  try {
+    localStorage.setItem('odontoprecio_lista', JSON.stringify(lista));
+    localStorage.setItem('odontoprecio_orden_tiendas', JSON.stringify(ordenTiendas));
+  } catch(e) { console.warn('localStorage lleno:', e); }
+}
+function guardarAlertas() {
+  try { localStorage.setItem('odontoprecio_alertas', JSON.stringify(alertas)); } catch(e) {}
+}
 
-  const dd = document.getElementById('tiendas-dropdown');
-  if (dd) {
-    const chips = Array.from(dd.querySelectorAll('.tienda-chip'));
-    chips.sort(() => Math.random() - 0.5);
-    chips.forEach(c => dd.appendChild(c));
-  }
+// ── HEADER ESTADO ──
+async function cargarEstado() {
+  try {
+    const r = await fetch('/api/estado');
+    const d = await r.json();
+    const el = document.getElementById('header-estado');
+    const tiendas_ok = d.tiendas_ok;
+    const tiendas_total = d.tiendas_totales;
+    const texto = `${d.total_productos.toLocaleString('es-AR')} productos · `;
+    const tiendas_txt = tiendas_ok < tiendas_total
+      ? `<span class="warn">${tiendas_ok}/${tiendas_total} tiendas</span>`
+      : `<span class="ok">${tiendas_ok} tiendas</span>`;
+    el.innerHTML = texto + tiendas_txt + ` · actualizado ${d.ultima_fmt}`;
+  } catch(e) {}
+}
+cargarEstado();
 
-  const input = document.getElementById('search-input');
-  input.addEventListener('input', e => {
-    clearTimeout(searchTimer);
-    const q = e.target.value.trim();
-    if (q.length < 2) { mostrarVacio(); return; }
-    searchTimer = setTimeout(() => buscar(q), 320);
+// ── TABS ──
+function mostrarTab(tab) {
+  ['buscar','lista','ci','acerca'].forEach(t => {
+    document.getElementById(`view-${t}`).style.display = t === tab ? 'block' : 'none';
+    document.getElementById(`tab-${t}`)?.classList.toggle('active', t === tab);
   });
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { clearTimeout(searchTimer); const q = input.value.trim(); if (q.length >= 2) buscar(q); }
-  });
+  if (tab === 'lista') renderLista();
+  if (tab === 'lista') renderAlertas();
+}
 
-  document.addEventListener('click', e => {
-    const dd = document.getElementById('tiendas-dropdown');
-    const btn = document.getElementById('btn-ver-tiendas');
-    if (dd?.classList.contains('open') && !dd.contains(e.target) && !btn?.contains(e.target)) {
-      dd.classList.remove('open');
-      if (btn) btn.textContent = 'Ver cuáles →';
-    }
-  });
-
-  // FIX: event listener para paginación con data-offset
-  document.getElementById('paginacion').addEventListener('click', e => {
-    const btn = e.target.closest('[data-offset]');
-    if (btn && !btn.disabled) {
-      buscar(queryActual, parseInt(btn.dataset.offset));
-    }
-  });
-});
-
-// ── TIENDAS ──
-function toggleVerTiendas() {
+// ── TIENDAS DROPDOWN ──
+function toggleTiendas() {
   const dd = document.getElementById('tiendas-dropdown');
   const btn = document.getElementById('btn-ver-tiendas');
   const open = dd.classList.toggle('open');
   btn.textContent = open ? 'Ocultar ↑' : 'Ver cuáles →';
 }
-
-// ── TABS ──
-function mostrarTab(tab) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('tab-' + tab).classList.add('active');
-  document.getElementById('page-' + tab).classList.add('active');
-  document.getElementById('btn-lista-hdr').classList.toggle('active', tab === 'lista');
-  if (tab === 'lista') renderLista();
-  if (window.gtag) gtag('event', 'page_view', {page_title: tab});
-}
+document.addEventListener('click', e => {
+  const dd = document.getElementById('tiendas-dropdown');
+  const btn = document.getElementById('btn-ver-tiendas');
+  if (dd?.classList.contains('open') && !dd.contains(e.target) && !btn?.contains(e.target)) {
+    dd.classList.remove('open');
+    btn.textContent = 'Ver cuáles →';
+  }
+});
 
 // ── BÚSQUEDA ──
-function buscarDesdeBtn() {
-  const q = document.getElementById('search-input').value.trim();
+const inp = document.getElementById('search-input');
+inp.addEventListener('input', () => {
+  const q = inp.value.trim();
+  clearTimeout(searchTimer);
+  clearTimeout(acTimer);
+  if (q.length >= 2) {
+    acTimer = setTimeout(() => mostrarAutocomplete(q), 150);
+    searchTimer = setTimeout(() => buscar(q), 380);
+  } else {
+    ocultarAutocomplete();
+    limpiarResultados();
+  }
+});
+inp.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { clearTimeout(searchTimer); dispararBusqueda(); ocultarAutocomplete(); }
+  if (e.key === 'Escape') ocultarAutocomplete();
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) ocultarAutocomplete();
+});
+
+function dispararBusqueda() {
+  const q = inp.value.trim();
   if (q.length >= 2) buscar(q);
+}
+
+function limpiarResultados() {
+  document.getElementById('products-grid').innerHTML = '';
+  document.getElementById('paginacion').innerHTML = '';
+  document.getElementById('results-header').style.display = 'none';
+  document.getElementById('aviso-busqueda').style.display = 'none';
+  document.getElementById('sugerencia-busqueda').style.display = 'none';
 }
 
 async function buscar(q, offset = 0) {
   queryActual = q;
-  paginaActual = Math.floor(offset / LIMIT);
+  limpiarResultados();
   document.getElementById('loading').style.display = 'block';
-  document.getElementById('products-grid').innerHTML = '';
-  document.getElementById('paginacion').innerHTML = '';
-  document.getElementById('results-label').textContent = `Resultados para "${q}"`;
-  document.getElementById('results-count').textContent = '';
-  if (window.gtag && offset === 0) gtag('event', 'search', {search_term: q});
+  ocultarAutocomplete();
   try {
     const r = await fetch(`/api/buscar?q=${encodeURIComponent(q)}&offset=${offset}`);
     const data = await r.json();
     document.getElementById('loading').style.display = 'none';
     const prods = data.resultados || [];
     totalResultados = data.total || 0;
-    if (totalResultados === 0) {
-      document.getElementById('products-grid').innerHTML = `<div class="empty-state"><span class="es-icon">🤷</span><h3>Sin resultados</h3><p>No encontramos "<strong>${esc(q)}</strong>" en ninguna distribuidora.</p></div>`;
+
+    if (data.aviso) {
+      document.getElementById('aviso-texto').textContent = data.aviso;
+      document.getElementById('aviso-busqueda').style.display = 'flex';
+    }
+    if (data.sugerencia && !prods.length) {
+      document.getElementById('sugerencia-texto').textContent = '💡 ' + data.sugerencia;
+      document.getElementById('sugerencia-busqueda').style.display = 'block';
+      window._sugerencia = data.sugerencia.replace('¿Buscabas: ','').replace('?','');
+    }
+
+    if (!totalResultados) {
+      document.getElementById('products-grid').innerHTML = `<div class="empty-state"><span class="es-icon">🔍</span><h3>Sin resultados para "${esc(q)}"</h3><p>Probá con otro término, marca o categoría.</p></div>`;
       return;
     }
-    document.getElementById('results-count').textContent = `${totalResultados} resultado${totalResultados !== 1 ? 's' : ''}`;
+
+    document.getElementById('results-header').style.display = 'flex';
+    document.getElementById('results-label').textContent = `Resultados para "${q}"`;
+    document.getElementById('results-count').textContent = `${totalResultados.toLocaleString('es-AR')} resultado${totalResultados !== 1 ? 's' : ''}`;
+
     renderProductos(prods);
     renderPaginacion(offset, totalResultados);
-    window.scrollTo({top: 0, behavior: 'smooth'});
-  } catch {
+    if (offset > 0) window.scrollTo({top: 0, behavior: 'smooth'});
+  } catch(e) {
     document.getElementById('loading').style.display = 'none';
-    document.getElementById('products-grid').innerHTML = `<div class="empty-state"><span class="es-icon">⚠️</span><h3>Error</h3><p>No se pudo conectar con el servidor.</p></div>`;
+    document.getElementById('products-grid').innerHTML = `<div class="empty-state"><span class="es-icon">⚠️</span><h3>Error de conexión</h3><p>No se pudo conectar con el servidor.</p></div>`;
   }
 }
 
-function renderPaginacion(offset, total) {
-  const pag = document.getElementById('paginacion');
-  const totalPags = Math.ceil(total / LIMIT);
-  if (totalPags <= 1) { pag.innerHTML = ''; return; }
-  const actual = Math.floor(offset / LIMIT);
-  let html = '';
-  // FIX: usar data-offset en lugar de string en onclick (evita problemas con comillas)
-  html += `<button class="pag-btn" data-offset="${Math.max(0,(actual-1)*LIMIT)}" ${actual===0?'disabled':''}>← Ant</button>`;
-  const delta = 2;
-  for (let i = 0; i < totalPags; i++) {
-    if (i === 0 || i === totalPags-1 || (i >= actual-delta && i <= actual+delta)) {
-      html += `<button class="pag-btn ${i===actual?'active':''}" data-offset="${i*LIMIT}">${i+1}</button>`;
-    } else if (i === actual-delta-1 || i === actual+delta+1) {
-      html += `<span class="pag-info">…</span>`;
-    }
+function usarSugerencia() {
+  if (window._sugerencia) {
+    inp.value = window._sugerencia;
+    buscar(window._sugerencia);
   }
-  html += `<button class="pag-btn" data-offset="${(actual+1)*LIMIT}" ${actual===totalPags-1?'disabled':''}>Sig →</button>`;
-  pag.innerHTML = html;
 }
 
-function mostrarVacio() {
-  document.getElementById('products-grid').innerHTML = `<div class="empty-state"><span class="es-icon">🔍</span><h3>Buscá un producto</h3><p>Escribí en el buscador para comparar precios<br>de todas las distribuidoras al mismo tiempo</p></div>`;
-  document.getElementById('results-label').textContent = 'Buscá un producto';
-  document.getElementById('results-count').textContent = '';
+// ── AUTOCOMPLETE ──
+async function mostrarAutocomplete(q) {
+  try {
+    const r = await fetch(`/api/autocomplete?q=${encodeURIComponent(q)}`);
+    const items = await r.json();
+    const list = document.getElementById('ac-list');
+    if (!items.length) { list.classList.remove('open'); return; }
+    list.innerHTML = items.map(i =>
+      `<div class="ac-item" onclick="inp.value='${esc(i.nombre)}';buscar('${esc(i.nombre)}');ocultarAutocomplete()">
+        <span class="ac-nombre">${esc(i.nombre)}</span>
+        <span class="ac-meta">${esc(i.tienda)}</span>
+        <span class="ac-precio">${esc(i.precio_fmt)}</span>
+      </div>`
+    ).join('');
+    list.classList.add('open');
+  } catch(e) {}
+}
+function ocultarAutocomplete() {
+  document.getElementById('ac-list').classList.remove('open');
 }
 
 // ── RENDER PRODUCTOS ──
-const _prodMap = {}; // FIX: mapa en memoria para evitar XSS con apostrofes en nombres
-
 function renderProductos(prods) {
   const ids = new Set(lista.map(i => i.id));
-  // Guardar en mapa para acceso seguro desde onclick
   prods.forEach(p => { _prodMap[p.id] = p; });
   document.getElementById('products-grid').innerHTML = prods.map((p, i) => {
     const enLista = ids.has(p.id);
-    const imgHtml = p.imagen ? `<img class="prod-img" src="${p.imagen}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='🦷'">` : '🦷';
-    return `<div class="product-card" style="animation-delay:${i*30}ms">
+    const imgHtml = p.imagen
+      ? `<img class="prod-img" src="${p.imagen}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='🦷'">`
+      : '🦷';
+    const tieneAlerta = alertas.some(a => a.id === p.id);
+    return `<div class="product-card" style="animation-delay:${i*20}ms">
       <div class="prod-img-wrap">${imgHtml}</div>
       <div class="prod-info">
         <div class="tienda-badge" style="background:${p.tienda_color}"><div class="badge-dot"></div>${esc(p.tienda_nombre)}</div>
@@ -635,39 +756,100 @@ function renderProductos(prods) {
           <button class="btn-agregar ${enLista ? 'agregado' : ''}" id="btn-${p.id}" data-pid="${esc(p.id)}" onclick="toggleListaById(this.dataset.pid)">${enLista ? '✓ En lista' : '+ Agregar'}</button>
           <div class="prod-links">
             ${p.url ? `<a href="${p.url}" target="_blank" rel="noopener" class="btn-ver">Ver tienda →</a>` : ''}
-            <button class="btn-reportar" data-pid="${esc(p.id)}" onclick="abrirReporteById(this.dataset.pid)">⚑ Reportar precio</button>
+            <button class="btn-alerta ${tieneAlerta ? 'activa' : ''}" data-pid="${esc(p.id)}" onclick="abrirAlertaById(this.dataset.pid)" title="Alerta de precio">🔔</button>
+            <button class="btn-reportar" data-pid="${esc(p.id)}" onclick="abrirReporteById(this.dataset.pid)">⚑</button>
           </div>
         </div>
       </div>
     </div>`;
   }).join('');
-
-  prods.forEach(p => cargarHistorial(p));
+  prods.forEach(p => cargarHistorialInline(p));
 }
 
-// FIX: wrappers que usan _prodMap en lugar de JSON inline en onclick
 function toggleListaById(id) { const p = _prodMap[id]; if (p) toggleLista(p); }
 function abrirReporteById(id) { const p = _prodMap[id]; if (p) abrirReporte(p); }
+function abrirAlertaById(id) { const p = _prodMap[id]; if (p) abrirAlerta(p); }
 
-// ── HISTORIAL ──
-async function cargarHistorial(p) {
+// ── HISTORIAL INLINE ──
+async function cargarHistorialInline(p) {
   try {
     const r = await fetch(`/api/historial/${p.id}`);
-    const hist = await r.json();
-    if (!hist || hist.length < 2) return;
-    const ultimo = hist[hist.length - 1].precio;
-    const anterior = hist[hist.length - 2].precio;
+    const data = await r.json();
     const el = document.getElementById(`hist-${p.id}`);
     if (!el) return;
-    if (ultimo > anterior) {
-      const pct = Math.round(((ultimo - anterior) / anterior) * 100);
-      el.innerHTML = `<span class="hist-sube">▲ ${pct}% vs ayer</span>`;
-    } else if (ultimo < anterior) {
-      const pct = Math.round(((anterior - ultimo) / anterior) * 100);
-      el.innerHTML = `<span class="hist-baja">▼ ${pct}% vs ayer</span>`;
+    const entradas = data.entradas || data;
+    const variacion = data.variacion_pct;
+    if (variacion !== null && variacion !== undefined) {
+      if (variacion > 0) {
+        el.innerHTML = `<span class="hist-sube">▲ ${variacion}% vs 30d</span>`;
+      } else if (variacion < 0) {
+        el.innerHTML = `<span class="hist-baja">▼ ${Math.abs(variacion)}% vs 30d</span>`;
+      }
     }
-  } catch {}
+  } catch(e) {}
 }
+
+// ── HISTORIAL MODAL ──
+async function verHistorial(id) {
+  const p = _prodMap[id];
+  if (!p) return;
+  try {
+    const r = await fetch(`/api/historial/${id}`);
+    const data = await r.json();
+    const entradas = data.entradas || data;
+    document.getElementById('mh-nombre').textContent = p.nombre;
+    document.getElementById('mh-tienda').textContent = p.tienda_nombre;
+    const chart = document.getElementById('mh-chart');
+    if (!entradas.length) {
+      chart.innerHTML = '<span style="color:var(--text3);font-size:12px">Sin historial disponible</span>';
+    } else {
+      const precios = entradas.map(e => e.precio).filter(x => x > 0);
+      const maxP = Math.max(...precios);
+      const minP = Math.min(...precios);
+      chart.innerHTML = entradas.slice(-14).map(e => {
+        const pct = maxP > 0 ? Math.max(10, (e.precio / maxP) * 100) : 50;
+        const isMax = e.precio === maxP;
+        const fecha = e.fecha.slice(5); // MM-DD
+        return `<div class="hc-bar-wrap">
+          <div class="hc-bar ${isMax ? 'max' : ''}" style="height:${pct}%"></div>
+          <div class="hc-label">${fecha}</div>
+        </div>`;
+      }).join('');
+    }
+    const sumEl = document.getElementById('mh-summary');
+    const variacion = data.variacion_pct;
+    const precio30d = data.precio_30d;
+    sumEl.innerHTML = `
+      <div class="hs-card"><div class="hs-label">Precio actual</div><div class="hs-val">${p.precio_fmt}</div></div>
+      <div class="hs-card"><div class="hs-label">Hace 30 días</div><div class="hs-val">${precio30d ? '$'+precio30d.toLocaleString('es-AR') : 'N/D'}</div></div>
+      <div class="hs-card"><div class="hs-label">Variación</div><div class="hs-val ${variacion > 0 ? 'up' : variacion < 0 ? 'down' : ''}">${variacion !== null && variacion !== undefined ? (variacion > 0 ? '+' : '') + variacion + '%' : 'N/D'}</div></div>`;
+    abrirModal('historial');
+  } catch(e) {}
+}
+
+// ── PAGINACIÓN ──
+function renderPaginacion(offset, total) {
+  const pag = document.getElementById('paginacion');
+  const totalPags = Math.ceil(total / LIMIT);
+  if (totalPags <= 1) { pag.innerHTML = ''; return; }
+  const actual = Math.floor(offset / LIMIT);
+  let html = '';
+  html += `<button class="pag-btn" data-offset="${Math.max(0,(actual-1)*LIMIT)}" ${actual===0?'disabled':''}>← Ant</button>`;
+  const delta = 2;
+  for (let i = 0; i < totalPags; i++) {
+    if (i===0 || i===totalPags-1 || (i>=actual-delta && i<=actual+delta)) {
+      html += `<button class="pag-btn ${i===actual?'active':''}" data-offset="${i*LIMIT}">${i+1}</button>`;
+    } else if (i===actual-delta-1 || i===actual+delta+1) {
+      html += `<span class="pag-info">…</span>`;
+    }
+  }
+  html += `<button class="pag-btn" data-offset="${(actual+1)*LIMIT}" ${actual===totalPags-1?'disabled':''}>Sig →</button>`;
+  pag.innerHTML = html;
+}
+document.getElementById('paginacion').addEventListener('click', e => {
+  const btn = e.target.closest('[data-offset]');
+  if (btn && !btn.disabled) buscar(queryActual, parseInt(btn.dataset.offset));
+});
 
 // ── LISTA ──
 function toggleLista(p) {
@@ -676,23 +858,24 @@ function toggleLista(p) {
   if (idx >= 0) {
     lista.splice(idx, 1);
     if (btn) { btn.textContent = '+ Agregar'; btn.classList.remove('agregado'); }
-    toast('Quitado de la lista');
   } else {
     lista.push({...p, cantidad: 1});
-    // Registrar orden de tienda si es nueva
-    if (!ordenTiendas.includes(p.tienda_slug)) {
-      ordenTiendas.push(p.tienda_slug);
-    }
+    if (!ordenTiendas.includes(p.tienda_slug)) ordenTiendas.push(p.tienda_slug);
     if (btn) { btn.textContent = '✓ En lista'; btn.classList.add('agregado'); }
-    toast(`✓ Agregado · ${p.precio_fmt}`);
-    document.getElementById('hdr-badge').classList.add('pulse');
-    setTimeout(() => document.getElementById('hdr-badge').classList.remove('pulse'), 500);
-    if (window.gtag) gtag('event', 'add_to_cart', {item_name: p.nombre, item_brand: p.tienda_nombre, price: p.precio});
   }
   guardarLista();
   actualizarBadges();
 }
-
+function actualizarBadges() {
+  const n = lista.length;
+  const badge = document.getElementById('tab-badge');
+  const hdrBadge = document.getElementById('hdr-badge');
+  badge.textContent = n;
+  badge.className = 'tab-badge' + (n ? '' : ' empty');
+  hdrBadge.textContent = n;
+  hdrBadge.className = 'hdr-badge' + (n ? ' pulse' : ' empty');
+  setTimeout(() => hdrBadge.classList.remove('pulse'), 500);
+}
 function cambiarCantidad(id, delta) {
   const item = lista.find(p => p.id === id);
   if (!item) return;
@@ -700,7 +883,6 @@ function cambiarCantidad(id, delta) {
   guardarLista();
   renderLista();
 }
-
 function quitarItem(id) {
   lista = lista.filter(p => p.id !== id);
   const btn = document.getElementById(`btn-${id}`);
@@ -709,139 +891,160 @@ function quitarItem(id) {
   actualizarBadges();
   renderLista();
 }
-
-// ── RENDER LISTA — FIX: usa Map para mantener orden estable al borrar ──
+function limpiarLista() {
+  if (!lista.length) return;
+  if (!confirm('¿Vaciar todo el carrito?')) return;
+  lista = []; ordenTiendas = [];
+  guardarLista();
+  actualizarBadges();
+  renderLista();
+}
 function renderLista() {
   const contenido = document.getElementById('lista-contenido');
-  const footer = document.getElementById('lista-footer');
-  const metricas = document.getElementById('lista-metricas');
+  const footer = document.getElementById('lista-metricas');
   const actions = document.getElementById('lista-actions');
-
   if (!lista.length) {
-    contenido.innerHTML = `<div class="lista-vacia"><span class="lista-vacia-icon">🛒</span><h3>Tu lista está vacía</h3><p>Buscá productos y agregálos para armar tu pedido</p><button class="btn-ir-buscar" onclick="mostrarTab('buscar')">Ir a buscar →</button></div>`;
-    footer.style.display = 'none'; metricas.style.display = 'none'; actions.style.display = 'none';
-    document.getElementById('lista-sub').textContent = '0 productos · 0 distribuidoras';
+    contenido.innerHTML = `<div class="empty-state"><span class="es-icon">🛒</span><h3>Tu lista está vacía</h3><p>Buscá productos y agregálos con el botón "+ Agregar"</p></div>`;
+    footer.style.display = 'none';
+    actions.style.display = 'none';
+    document.getElementById('lista-subtitle').textContent = '0 productos · 0 distribuidoras';
     return;
   }
-
-  // Construir grupos respetando el orden original de agregado
+  footer.style.display = 'grid';
+  actions.style.display = 'flex';
   const gruposMap = new Map();
   lista.forEach(p => {
     if (!gruposMap.has(p.tienda_slug)) {
       gruposMap.set(p.tienda_slug, {
-        nombre: p.tienda_nombre,
-        color: p.tienda_color,
-        url_base: p.url ? (() => { try { return new URL(p.url).origin; } catch { return '#'; } })() : '#',
+        nombre: p.tienda_nombre, color: p.tienda_color,
+        url_base: (() => { try { return new URL(p.url||'').origin; } catch { return '#'; } })(),
         items: []
       });
     }
     gruposMap.get(p.tienda_slug).items.push(p);
   });
-  // Reordenar según el orden original de inserción de tiendas
   const gruposOrdenados = new Map();
-  ordenTiendas.forEach(slug => {
-    if (gruposMap.has(slug)) gruposOrdenados.set(slug, gruposMap.get(slug));
-  });
-  // Tiendas que no estaban en ordenTiendas (por si acaso) van al final
-  gruposMap.forEach((v, k) => { if (!gruposOrdenados.has(k)) gruposOrdenados.set(k, v); });
-
-  let total = 0;
+  ordenTiendas.forEach(slug => { if (gruposMap.has(slug)) gruposOrdenados.set(slug, gruposMap.get(slug)); });
+  gruposMap.forEach((v,k) => { if (!gruposOrdenados.has(k)) gruposOrdenados.set(k,v); });
   const n = gruposOrdenados.size;
-
+  let totalPrecio = 0;
+  lista.forEach(p => { totalPrecio += (p.precio||0) * (p.cantidad||1); });
+  document.getElementById('m-total').textContent = '$' + totalPrecio.toLocaleString('es-AR');
+  document.getElementById('m-tiendas').textContent = n;
+  document.getElementById('m-productos').textContent = lista.length;
+  document.getElementById('lista-subtitle').textContent = `${lista.length} producto${lista.length!==1?'s':''} · ${n} distribuidora${n!==1?'s':''}`;
   const cards = Array.from(gruposOrdenados.values()).map(g => {
-    const sub = g.items.reduce((s, p) => s + (p.precio || 0) * (p.cantidad || 1), 0);
-    total += sub;
+    const totalTienda = g.items.reduce((s,p) => s+(p.precio||0)*(p.cantidad||1), 0);
     const items = g.items.map(p => {
-      const imgHtml = p.imagen ? `<img class="item-img" src="${p.imagen}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='🦷'">` : '🦷';
-      const mult = (p.cantidad || 1) > 1;
+      const imgHtml = p.imagen ? `<img class="li-img" src="${p.imagen}" alt="" onerror="this.src=''">` : `<div class="li-img" style="display:flex;align-items:center;justify-content:center;font-size:20px">🦷</div>`;
       return `<div class="lista-item">
-        <div class="item-img-wrap">${imgHtml}</div>
-        <div class="item-info">
-          <div class="item-nombre" title="${esc(p.nombre)}">${esc(p.nombre)}</div>
-          <div class="item-precio">${fmt(p.precio)}${mult ? ` × ${p.cantidad} = <strong>${fmt((p.precio || 0) * (p.cantidad || 1))}</strong>` : ''}</div>
+        ${imgHtml}
+        <span class="li-nombre">${esc(p.nombre)}</span>
+        <div class="li-controls">
+          <button class="cnt-btn" onclick="cambiarCantidad('${p.id}',-1)">−</button>
+          <span class="cnt-num">${p.cantidad||1}</span>
+          <button class="cnt-btn" onclick="cambiarCantidad('${p.id}',1)">+</button>
         </div>
-        <div class="item-controls">
-          <div class="qty-wrap">
-            <button class="qty-btn" onclick="cambiarCantidad('${p.id}',-1)">−</button>
-            <span class="qty-val">${p.cantidad || 1}</span>
-            <button class="qty-btn" onclick="cambiarCantidad('${p.id}',1)">+</button>
-          </div>
-          <button class="btn-quitar" onclick="quitarItem('${p.id}')" title="Quitar">×</button>
-        </div>
+        <span class="li-precio">${p.precio_fmt||'Sin precio'}</span>
+        <button class="li-del" onclick="quitarItem('${p.id}')">✕</button>
       </div>`;
     }).join('');
-
     return `<div class="tienda-card">
-      <div class="tienda-card-hdr">
-        <div class="tienda-card-nombre"><div class="tienda-card-dot" style="background:${g.color}"></div>${esc(g.nombre)}</div>
-        <div class="tienda-card-subtotal">${fmt(sub)}</div>
+      <div class="tienda-card-header">
+        <div class="tienda-card-nombre">
+          <span style="width:10px;height:10px;border-radius:50%;background:${g.color};flex-shrink:0;display:inline-block"></span>
+          ${esc(g.nombre)}
+        </div>
+        <div class="tienda-card-total">$${totalTienda.toLocaleString('es-AR')}</div>
       </div>
       ${items}
-      <div class="tienda-card-ftr">
-        <span class="tienda-card-ftr-info">${g.items.length} producto${g.items.length !== 1 ? 's' : ''}</span>
-        <a class="ir-tienda" href="${g.url_base}" target="_blank" rel="noopener">Ver tienda →</a>
+      <div class="tienda-footer">
+        <span class="tienda-footer-items">${g.items.length} producto${g.items.length!==1?'s':''}</span>
+        ${g.url_base !== '#' ? `<a href="${g.url_base}" target="_blank" rel="noopener" class="btn-ver-tienda">Ver tienda →</a>` : ''}
       </div>
     </div>`;
-  }).join('');
-
-  contenido.innerHTML = `<div class="tiendas-grid">${cards}</div>`;
-  document.getElementById('metrica-total').textContent = fmt(total);
-  document.getElementById('metrica-tiendas').textContent = n;
-  document.getElementById('metrica-productos').textContent = lista.length;
-  document.getElementById('footer-total').textContent = fmt(total);
-  document.getElementById('lista-sub').textContent = `${lista.length} producto${lista.length !== 1 ? 's' : ''} · ${n} distribuidora${n !== 1 ? 's' : ''}`;
-  metricas.style.display = 'block';
-  footer.style.display = 'flex';
-  actions.style.display = 'flex';
+  });
+  contenido.innerHTML = `<div class="tiendas-grid">${cards.join('')}</div>`;
 }
-
-function limpiarLista() {
-  if (!confirm('¿Limpiar toda la lista?')) return;
-  lista = []; ordenTiendas = []; guardarLista(); actualizarBadges(); renderLista();
-  document.querySelectorAll('.btn-agregar.agregado').forEach(b => { b.textContent = '+ Agregar'; b.classList.remove('agregado'); });
-  toast('Lista limpiada');
-}
-
 function copiarResumen() {
-  if (!lista.length) return;
-  const g = new Map();
+  const gruposMap = new Map();
   lista.forEach(p => {
-    if (!g.has(p.tienda_slug)) g.set(p.tienda_slug, {nombre: p.tienda_nombre, items: []});
-    g.get(p.tienda_slug).items.push(p);
+    if (!gruposMap.has(p.tienda_slug)) gruposMap.set(p.tienda_slug, {nombre: p.tienda_nombre, items: []});
+    gruposMap.get(p.tienda_slug).items.push(p);
   });
-  let txt = '🦷 OdontoPrecio — Lista de compras\n' + '─'.repeat(36) + '\n\n';
+  let txt = '📋 Mi lista de compras — OdontoPrecio\n\n';
   let total = 0;
-  Array.from(g.values()).forEach(gr => {
-    const sub = gr.items.reduce((s, p) => s + (p.precio || 0) * (p.cantidad || 1), 0);
-    total += sub;
-    txt += `📦 ${gr.nombre}\n`;
-    gr.items.forEach(p => {
-      txt += `   • ${p.nombre}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''} — ${fmt((p.precio || 0) * (p.cantidad || 1))}\n`;
-      if (p.url) txt += `     ${p.url}\n`;
+  gruposMap.forEach(g => {
+    txt += `🏪 ${g.nombre}\n`;
+    g.items.forEach(p => {
+      const sub = (p.precio||0) * (p.cantidad||1);
+      txt += `  • ${p.nombre} × ${p.cantidad||1} = ${('$'+sub.toLocaleString('es-AR'))}\n`;
+      total += sub;
     });
-    txt += `   Subtotal: ${fmt(sub)}\n\n`;
+    txt += '\n';
   });
-  txt += '─'.repeat(36) + '\nTOTAL: ' + fmt(total);
+  txt += `TOTAL ESTIMADO: $${total.toLocaleString('es-AR')}`;
   navigator.clipboard.writeText(txt).then(() => toast('📋 Resumen copiado'));
+}
+
+// ── ALERTAS ──
+function abrirAlerta(p) {
+  productoAlerta = p;
+  document.getElementById('ma-nombre').textContent = p.nombre + ' — ' + p.tienda_nombre;
+  const alertaExistente = alertas.find(a => a.id === p.id);
+  document.getElementById('alerta-precio').value = alertaExistente?.precio_objetivo || Math.round(p.precio * 0.9);
+  abrirModal('alerta');
+}
+function guardarAlerta() {
+  if (!productoAlerta) return;
+  const precio = parseInt(document.getElementById('alerta-precio').value);
+  if (!precio || precio <= 0) return;
+  alertas = alertas.filter(a => a.id !== productoAlerta.id);
+  alertas.push({
+    id: productoAlerta.id,
+    nombre: productoAlerta.nombre,
+    tienda: productoAlerta.tienda_nombre,
+    precio_actual: productoAlerta.precio,
+    precio_objetivo: precio,
+    fecha: new Date().toLocaleDateString('es-AR'),
+  });
+  guardarAlertas();
+  cerrarModal('alerta');
+  toast('🔔 Alerta guardada');
+  const btn = document.querySelector(`[data-pid="${productoAlerta.id}"].btn-alerta`);
+  if (btn) btn.classList.add('activa');
+}
+function renderAlertas() {
+  const el = document.getElementById('alertas-lista');
+  if (!alertas.length) {
+    el.innerHTML = '<div class="alerta-vacia">No tenés alertas configuradas. Hacé clic en "🔔" en cualquier producto.</div>';
+    return;
+  }
+  el.innerHTML = alertas.map(a => `<div class="alerta-item">
+    <span class="alerta-desc">
+      <strong>${esc(a.nombre)}</strong> · ${esc(a.tienda)}<br>
+      <span style="font-size:12px">Avisar si baja de $${a.precio_objetivo?.toLocaleString('es-AR')} · Actual: $${a.precio_actual?.toLocaleString('es-AR')}</span>
+    </span>
+    <button class="alerta-del" onclick="eliminarAlerta('${a.id}')">🗑</button>
+  </div>`).join('');
+}
+function eliminarAlerta(id) {
+  alertas = alertas.filter(a => a.id !== id);
+  guardarAlertas();
+  renderAlertas();
+  toast('Alerta eliminada');
 }
 
 // ── REPORTE ──
 function abrirReporte(p) {
   productoReporte = p;
-  document.getElementById('modal-prod-nombre').textContent = `${p.nombre} · ${p.tienda_nombre} · ${p.precio_fmt}`;
-  document.getElementById('modal-comentario').value = '';
-  document.getElementById('modal-reporte').classList.add('open');
+  document.getElementById('mr-nombre').textContent = p.nombre + ' — ' + p.tienda_nombre;
+  document.getElementById('mr-comentario').value = '';
+  abrirModal('reporte');
 }
-
-function cerrarReporte() {
-  document.getElementById('modal-reporte').classList.remove('open');
-  productoReporte = null;
-}
-
 async function enviarReporte() {
   if (!productoReporte) return;
-  const motivo = document.getElementById('modal-motivo').value;
-  const comentario = `${motivo}: ${document.getElementById('modal-comentario').value}`;
+  const comentario = document.getElementById('mr-comentario').value.trim();
   try {
     await fetch('/api/reporte', {
       method: 'POST',
@@ -851,47 +1054,125 @@ async function enviarReporte() {
         nombre: productoReporte.nombre,
         tienda: productoReporte.tienda_nombre,
         precio: productoReporte.precio,
-        comentario
+        comentario,
       })
     });
-    cerrarReporte();
-    toast('✓ Reporte enviado, gracias!');
-    if (window.gtag) gtag('event', 'report_price', {item_name: productoReporte.nombre});
-  } catch {
-    toast('Error al enviar el reporte');
-  }
+    cerrarModal('reporte');
+    toast('✅ Reporte enviado, gracias');
+  } catch(e) { toast('Error al enviar'); }
 }
 
-document.getElementById('modal-reporte').addEventListener('click', e => {
-  if (e.target === e.currentTarget) cerrarReporte();
-});
+// ── COMPRA INTELIGENTE ──
+let ciResultados = null;
+let ciEstActiva = 'balanceado';
 
-// ── UTILS ──
-function guardarLista() {
+async function analizarLista() {
+  const texto = document.getElementById('ci-textarea').value.trim();
+  if (!texto) { toast('Escribí al menos un producto'); return; }
+  document.getElementById('btn-analizar').disabled = true;
+  document.getElementById('ci-loading').style.display = 'block';
+  document.getElementById('ci-resultados-panel').style.display = 'none';
   try {
-    localStorage.setItem('odontoprecio_lista', JSON.stringify(lista));
-    localStorage.setItem('odontoprecio_orden_tiendas', JSON.stringify(ordenTiendas));
+    const r = await fetch('/api/compra-inteligente', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({lista: texto})
+    });
+    ciResultados = await r.json();
+    renderCiResultados();
   } catch(e) {
-    console.warn('localStorage lleno:', e);
+    toast('Error al analizar la lista');
+  } finally {
+    document.getElementById('btn-analizar').disabled = false;
+    document.getElementById('ci-loading').style.display = 'none';
   }
 }
-function actualizarBadges() {
-  const n = lista.length;
-  const hb = document.getElementById('hdr-badge');
-  const tb = document.getElementById('tab-badge');
-  if (hb) { hb.textContent = n; hb.className = n ? 'hdr-badge' : 'hdr-badge empty'; }
-  if (tb) { tb.textContent = n; tb.className = n ? 'tab-badge' : 'tab-badge empty'; }
+
+function renderCiResultados() {
+  if (!ciResultados) return;
+  const { lineas, estrategias } = ciResultados;
+  document.getElementById('ci-resultados-panel').style.display = 'block';
+
+  // Estrategias
+  const ests = [
+    { key: 'mas_barato', label: 'Más barato', icon: '💰', data: estrategias.mas_barato },
+    { key: 'menos_tiendas', label: 'Menos tiendas', icon: '🏪', data: estrategias.menos_tiendas },
+    { key: 'balanceado', label: 'Balanceado', icon: '⚖️', data: estrategias.balanceado, recomendado: true },
+  ];
+  document.getElementById('ci-estrategias').innerHTML = ests.map(e => `
+    <div class="est-card ${ciEstActiva === e.key ? 'active' : ''}" onclick="selectEstrategia('${e.key}')">
+      ${e.recomendado ? '<div class="est-recomendado">✨ Recomendado</div>' : ''}
+      <div class="est-label">${e.icon} ${e.label}</div>
+      <div class="est-total">$${(e.data.total||0).toLocaleString('es-AR')}</div>
+      <div class="est-meta">${e.data.n_tiendas} tienda${e.data.n_tiendas!==1?'s':''}</div>
+    </div>`).join('');
+
+  renderCiTabla();
 }
-function fmt(n) { if (!n) return '$0'; return '$' + Math.round(n).toLocaleString('es-AR'); }
-function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
-function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
-async function cargarStats() {
-  try {
-    const r = await fetch('/api/stats');
-    const d = await r.json();
-    document.getElementById('stats-text').textContent = `${d.total.toLocaleString('es-AR')} productos indexados`;
-  } catch {}
+
+function selectEstrategia(key) {
+  ciEstActiva = key;
+  document.querySelectorAll('.est-card').forEach(c => c.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  renderCiTabla();
 }
+
+function renderCiTabla() {
+  if (!ciResultados) return;
+  const { lineas, estrategias } = ciResultados;
+  const est = estrategias[ciEstActiva];
+  const tbody = document.getElementById('ci-tbody');
+  tbody.innerHTML = lineas.map((r, i) => {
+    const item = est.items[i];
+    const aviso = r.aviso ? `<span style="font-size:11px;color:var(--warn)">⚠ ${r.aviso}</span>` : '';
+    if (!item) {
+      return `<tr>
+        <td><span class="ci-linea-original">${esc(r.linea)}</span>${aviso}</td>
+        <td colspan="4"><span class="ci-sin-match">Sin coincidencias</span></td>
+      </tr>`;
+    }
+    const conf = item.confianza;
+    const confClass = conf >= 80 ? 'conf-alta' : conf >= 60 ? 'conf-media' : 'conf-baja';
+    const confLabel = conf >= 80 ? 'Alta' : conf >= 60 ? 'Media' : 'Baja';
+    return `<tr>
+      <td>
+        <span class="ci-linea-original">${esc(r.linea)}</span>${aviso}
+      </td>
+      <td>
+        <div class="ci-match-nombre">${esc(item.nombre)}</div>
+      </td>
+      <td><span class="ci-confianza ${confClass}">${confLabel} ${conf}%</span></td>
+      <td><div class="ci-match-tienda">${esc(item.tienda)}</div></td>
+      <td>
+        <div class="ci-precio">${esc(item.precio_fmt)}</div>
+        ${item.url ? `<a href="${item.url}" target="_blank" rel="noopener" class="btn-ver" style="font-size:11px">Ver →</a>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── MODALES ──
+function abrirModal(tipo) { document.getElementById(`modal-${tipo}`).classList.add('open'); }
+function cerrarModal(tipo) { document.getElementById(`modal-${tipo}`).classList.remove('open'); }
+
+// ── TOAST ──
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── ESCAPE ──
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── INIT ──
+actualizarBadges();
+document.getElementById('search-input').focus();
 </script>
 </body>
 </html>
