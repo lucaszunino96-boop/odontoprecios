@@ -849,64 +849,270 @@ def scrape_odontostore(tienda):
     return productos
 
 # ─── MOTOR CEDENT ─────────────────────────────────────────────────────────────
+def _extraer_producto_cedent(card, tienda, urls_vistas):
+    """
+    Extrae nombre, precio, url, imagen de una card de producto Odoo.
+    Intenta múltiples selectores para ser robusto ante cambios de versión.
+    """
+    # Nombre — múltiples selectores por versión de Odoo
+    nombre = ""
+    for sel in ["[itemprop='name']", "h5.o_wsale_product_name", "h5", "h6",
+                ".product-name", ".o_product_name", "span.h5", ".card-title"]:
+        el = card.select_one(sel)
+        if el:
+            nombre = el.get_text(strip=True)
+            if nombre and len(nombre) > 2:
+                break
+
+    if not nombre or len(nombre) < 3:
+        return None
+
+    # Precio — múltiples selectores
+    precio = 0
+    for sel_precio in [
+        ".oe_currency_value",          # Odoo 14/15
+        ".o_currency_value",           # Odoo 16
+        "[itemprop='price']",          # Schema.org
+        ".o_wsale_product_price",      # Odoo 16 específico
+        ".price",
+        "[class*='price']",
+    ]:
+        els = card.select(sel_precio)
+        precios_encontrados = []
+        for el in els:
+            val = el.get("content") or el.get_text(strip=True)
+            p = limpiar_precio(val)
+            if p > 50:
+                precios_encontrados.append(p)
+        if precios_encontrados:
+            precio = min(precios_encontrados)
+            break
+
+    if precio <= 0:
+        return None
+
+    # URL
+    href = ""
+    for sel_link in ["a[href*='/shop/']", "a[href*='/producto']", "a[href]"]:
+        link_el = card.select_one(sel_link)
+        if link_el:
+            href = link_el.get("href", "")
+            break
+    if not href:
+        return None
+    if not href.startswith("http"):
+        href = tienda["url_base"] + href
+    href_limpia = href.split("?")[0]
+    if href_limpia in urls_vistas:
+        return None
+    urls_vistas.add(href_limpia)
+
+    # Imagen
+    imagen = ""
+    img_el = card.select_one("img[src], img[data-src]")
+    if img_el:
+        imagen = img_el.get("data-src") or img_el.get("src", "")
+        if imagen and not imagen.startswith("http"):
+            imagen = tienda["url_base"] + imagen
+
+    return hacer_producto(tienda, nombre, precio, href_limpia, imagen)
+
+
 def scrape_cedent(tienda):
+    """
+    Scraper para Cedent (Odoo eCommerce).
+    Usa múltiples selectores para ser robusto ante cambios de versión de Odoo.
+    """
     productos, urls_vistas = [], set()
+    cats_sin_productos = 0
+
+    # Selectores de cards de producto — en orden de preferencia por versión Odoo
+    SELECTORES_CARDS = [
+        # Odoo 16/17
+        ".o_wsale_products_grid_item",
+        ".oe_product_cart",
+        # Odoo 14/15
+        "article.product_item",
+        ".o_wsale_product_grid_wrapper .o_wsale_product_information",
+        # Genérico Odoo
+        ".js_product",
+        "[data-product_id]",
+        # Fallback: cualquier item con schema Product
+        "div[itemtype*='Product']",
+        "[itemtype='http://schema.org/Product']",
+    ]
+
     for cat_path in tienda.get("categorias_urls", []):
         cat_url = tienda["url_base"] + cat_path
         page = 1
-        print(f"  Cat: {cat_path.split('/')[-1][:30]}")
+        cat_nombre = cat_path.split("/")[-1][:30]
+        cat_prods = 0
+        print(f"  Cat: {cat_nombre}")
+
         while True:
             url = f"{cat_url}?page={page}" if page > 1 else cat_url
             try:
-                r = fetch(url, timeout=15)
-                if r.status_code != 200: break
+                r = fetch(url, timeout=20)
+                if r.status_code != 200:
+                    if r.status_code == 404:
+                        print(f"    ⚠ 404 en {cat_nombre} — categoría inexistente, saltando")
+                    break
+
                 soup = BeautifulSoup(r.text, "lxml")
-                prod_cards = soup.select("article.product_item, .o_wsale_product_grid_wrapper .o_wsale_product_information, div[itemtype*='Product']")
+
+                # Intentar cada selector hasta encontrar cards
+                prod_cards = []
+                selector_usado = None
+                for sel in SELECTORES_CARDS:
+                    cards = soup.select(sel)
+                    if cards:
+                        prod_cards = cards
+                        selector_usado = sel
+                        break
+
                 if not prod_cards:
-                    prod_cards = soup.select(".js_product, [data-product_id]")
+                    if page == 1:
+                        print(f"    ⚠ {cat_nombre}: sin cards de producto con ningún selector")
+                        # Log del HTML para debug
+                        clases = set()
+                        for tag in soup.find_all(class_=True)[:50]:
+                            for c in tag.get("class", []):
+                                if any(k in c for k in ["product","wsale","oe_","shop"]):
+                                    clases.add(c)
+                        if clases:
+                            print(f"    Clases relevantes encontradas: {sorted(clases)[:10]}")
+                    break
+
                 encontro_nuevos = False
                 for card in prod_cards:
-                    nombre_el = card.select_one("[itemprop='name'], h5, h6, .product-name")
-                    if not nombre_el: continue
-                    nombre = nombre_el.get_text(strip=True)
-                    if not nombre or len(nombre) < 3: continue
-                    precio_el = card.select_one("[itemprop='price']")
-                    precio_base = limpiar_precio(precio_el.get("content", "0")) if precio_el else 0
-                    cvs = card.select(".oe_currency_value")
-                    precios_visibles = [limpiar_precio(cv.get_text(strip=True)) for cv in cvs if limpiar_precio(cv.get_text(strip=True)) > 50]
-                    if precios_visibles:
-                        precio = min(precios_visibles)
-                    elif precio_base > 50:
-                        precio = precio_base
-                    else:
-                        precio = 0
-                    link_el = card.select_one("a[href*='/shop/']")
-                    href = link_el.get("href", "") if link_el else ""
-                    if not href.startswith("http"): href = tienda["url_base"] + href
-                    href_limpia = href.split("?")[0]
-                    if href_limpia in urls_vistas: continue
-                    urls_vistas.add(href_limpia)
-                    img_el = card.select_one("img")
-                    imagen = img_el.get("src", "") if img_el else ""
-                    if imagen and not imagen.startswith("http"):
-                        imagen = tienda["url_base"] + imagen
-                    if nombre and precio and precio > 50:
-                        productos.append(hacer_producto(tienda, nombre, precio, href_limpia, imagen))
+                    prod = _extraer_producto_cedent(card, tienda, urls_vistas)
+                    if prod:
+                        productos.append(prod)
+                        cat_prods += 1
                         encontro_nuevos = True
-                if not encontro_nuevos and page > 1: break
-                next_btn = soup.select_one("a.page-link[aria-label='Next'], a[href*='page=']")
-                if not next_btn: break
+
+                # Paginación — múltiples selectores
+                next_btn = None
+                for sel_next in [
+                    "a.page-link[aria-label='Next']",
+                    ".o_website_pager a[aria-label='Next']",
+                    "li.page-item:last-child a.page-link",
+                    "a[rel='next']",
+                    f"a[href*='page={page+1}']",
+                ]:
+                    next_btn = soup.select_one(sel_next)
+                    if next_btn:
+                        break
+
+                if not encontro_nuevos or not next_btn:
+                    break
                 page += 1
+                time.sleep(DELAY)
+
             except Exception as e:
                 import traceback
-                print(f"  ! Cedent cat {cat_path}: {type(e).__name__}: {e}")
-                print(f"  Traceback: {traceback.format_exc()[-300:]}")
+                print(f"  ! Cedent {cat_nombre} pág {page}: {type(e).__name__}: {e}")
+                print(f"    {traceback.format_exc()[-200:]}")
                 break
+
+        if cat_prods == 0:
+            cats_sin_productos += 1
+
     if not productos:
-        print(f"  ⚠ Cedent: 0 productos — verificar selectores CSS o que el sitio no haya cambiado")
+        print(f"  ❌ Cedent: 0 productos totales")
+        print(f"     Categorías sin productos: {cats_sin_productos}/{len(tienda.get('categorias_urls', []))}")
+        print(f"     → Probable causa: selectores CSS desactualizados o IDs de categoría cambiados")
+        print(f"     → Ejecutar: python debug_tienda.py cedent  para diagnóstico detallado")
+    else:
+        print(f"  Cedent: {len(productos)} productos ({cats_sin_productos} cats vacías)")
+
     return productos
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
+
+# ─── ESTIMACIÓN DE COBERTURA ──────────────────────────────────────────────────
+def estimar_total_tienda(tienda):
+    """
+    Estima cuántos productos reales tiene la tienda usando el método más
+    confiable disponible para su tipo. No scrapea productos — solo cuenta.
+    Retorna (estimado, metodo_usado).
+    """
+    tipo = tienda["tipo"]
+    try:
+        # ── TiendaNube / WooCommerce con sitemap ──
+        if tienda.get("sitemap"):
+            pares = obtener_urls_sitemap(tienda["sitemap"], tienda["filtro_sitemap"])
+            for key in sorted(k for k in tienda if k.startswith("sitemap_extra")):
+                pares += obtener_urls_sitemap(tienda[key], tienda["filtro_sitemap"])
+            return len(pares), "sitemap_count"
+
+        # ── Shopify: API pública con total ──
+        if tipo == "shopify":
+            r = fetch(f"{tienda['url_base']}/products/count.json", timeout=10)
+            if r.status_code == 200:
+                return r.json().get("count", 0), "shopify_api"
+
+        # ── WooCommerce paginado: contar desde la página de productos ──
+        if tipo == "woocommerce_paginado":
+            url = tienda.get("url_productos", f"{tienda['url_base']}/shop/")
+            r = fetch(url, timeout=15)
+            if r.status_code == 200:
+                soup = BeautifulSoup(r.text, "lxml")
+                # WooCommerce muestra "Mostrando X–Y de Z resultados"
+                result_count = soup.select_one(".woocommerce-result-count")
+                if result_count:
+                    nums = re.findall(r"\d+", result_count.get_text())
+                    if nums:
+                        return int(nums[-1]), "wc_result_count"
+                # Fallback: contar categorías y multiplicar
+                cats = soup.select(".product-category, .cat-item a")
+                return len(cats) * 30, "categoria_estimado"
+
+        # ── PrestaShop: contar desde categoría raíz ──
+        if tipo == "prestashop":
+            total = 0
+            for cat in tienda.get("categorias", [])[:3]:  # solo 3 para no tardar
+                r = fetch(f"{tienda['url_base']}/{cat}", timeout=10)
+                if r.status_code == 200:
+                    soup = BeautifulSoup(r.text, "lxml")
+                    total_el = soup.select_one("#js-product-list-top .total-products")
+                    if total_el:
+                        nums = re.findall(r"\d+", total_el.get_text())
+                        if nums:
+                            # Extrapolar al total de categorías
+                            return int(nums[0]) * len(tienda.get("categorias", [])) // 3, "prestashop_count"
+            return len(tienda.get("categorias", [])) * 50, "categoria_estimado"
+
+        # ── Tiendas por categorías (Cedent, Dentalab, etc) ──
+        if tipo in ("cedent", "dentalab", "odontostore", "carrizo"):
+            # Visitar la primera categoría y ver cuántos items tiene
+            cats = tienda.get("categorias_urls", tienda.get("categorias_ids", []))
+            if cats:
+                primera = cats[0] if isinstance(cats[0], str) else str(cats[0])
+                if isinstance(cats[0], int):
+                    url = f"{tienda['url_base']}/index.php?agru_1={cats[0]}"
+                else:
+                    url = tienda["url_base"] + primera
+                r = fetch(url, timeout=15)
+                if r.status_code == 200:
+                    soup = BeautifulSoup(r.text, "lxml")
+                    # Buscar total visible en la página
+                    for selector in ["[class*='total']", "[class*='count']", ".product-count"]:
+                        el = soup.select_one(selector)
+                        if el:
+                            nums = re.findall(r"\d+", el.get_text())
+                            if nums and int(nums[0]) > 0:
+                                return int(nums[0]) * len(cats), "count_x_cats"
+                    # Contar productos en la página × categorías × páginas estimadas
+                    items = soup.select("[class*='product'], article, .card")
+                    items_pag = max(len(items), 1)
+                    return items_pag * len(cats), "items_x_cats_estimado"
+            return len(cats) * 20, "cats_count_estimado"
+
+    except Exception as e:
+        print(f"  ! estimar_total: {e}")
+    return 0, "sin_estimacion"
+
 REPORTE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reporte_scraping.json")
 
 def _metodo_scraping(tipo):
@@ -951,12 +1157,18 @@ def correr_scraper():
         tipo = tienda["tipo"]
         print(f"\n{'='*50}\nScrapeando: {nombre} ({tipo})\n{'='*50}")
 
+        # Estimar total real de la tienda (rápido, sin scrapear productos)
+        estimado, metodo_est = estimar_total_tienda(tienda)
+
         info_tienda = {
             "slug": slug,
             "nombre": nombre,
             "tipo": tipo,
             "metodo": _metodo_scraping(tipo),
+            "metodo_estimacion": metodo_est,
             "productos": 0,
+            "estimados": estimado,
+            "cobertura_pct": 0,
             "reutilizados_cache": 0,
             "errores": 0,
             "warnings": [],
@@ -1002,13 +1214,29 @@ def correr_scraper():
         info_tienda["productos"] = len(prods)
         info_tienda["duracion_s"] = duracion
 
+        # Calcular cobertura real
+        estimado = info_tienda["estimados"]
+        scrapeados = len(prods)
+        if estimado > 0:
+            cobertura = round((scrapeados / estimado) * 100, 1)
+        else:
+            cobertura = 100.0 if scrapeados > 0 else 0.0
+        info_tienda["cobertura_pct"] = cobertura
+
         # Alertas automáticas
-        if len(prods) == 0:
+        if scrapeados == 0:
             info_tienda["estado"] = "sin_productos"
             info_tienda["warnings"].append("⚠ 0 productos — verificar manualmente")
-            print(f"  ⚠ ALERTA: 0 productos en {nombre}")
-        elif len(prods) < 50:
-            info_tienda["warnings"].append(f"⚠ Solo {len(prods)} productos — puede ser bajo")
+            print(f"  ❌ ALERTA: 0 productos en {nombre}")
+        elif estimado > 0 and cobertura < 70:
+            info_tienda["warnings"].append(
+                f"⚠ COBERTURA_BAJA: {scrapeados} scrapeados / ~{estimado} estimados ({cobertura}%)"
+            )
+            if info_tienda["estado"] == "ok":
+                info_tienda["estado"] = "cobertura_baja"
+            print(f"  ⚠ COBERTURA BAJA en {nombre}: {cobertura}% ({scrapeados}/{estimado})")
+        elif scrapeados < 50:
+            info_tienda["warnings"].append(f"⚠ Solo {scrapeados} productos — puede ser bajo")
             if info_tienda["estado"] == "ok":
                 info_tienda["estado"] = "bajo"
 
@@ -1021,6 +1249,7 @@ def correr_scraper():
     duracion_total = round(time.time() - inicio_total, 1)
     reporte["total_productos"] = len(todos)
     reporte["total_errores"] = sum(1 for t in reporte["tiendas"] if t["estado"] in ("error_fatal", "sin_productos"))
+    reporte["tiendas_cobertura_baja"] = [t["nombre"] for t in reporte["tiendas"] if t["estado"] == "cobertura_baja"]
     reporte["duracion_total_s"] = duracion_total
 
     # Guardar productos.json
@@ -1037,11 +1266,16 @@ def correr_scraper():
     print(f"\n{'='*60}")
     print(f"RESUMEN FINAL — {datetime.now().strftime('%d/%m/%Y %H:%M')}")
     print(f"{'='*60}")
-    print(f"{'Tienda':<30} {'Prods':>6} {'Tiempo':>7} {'Estado'}")
-    print(f"{'-'*60}")
+    print(f"{'Tienda':<28} {'Scrp':>5} {'Est':>6} {'Cob%':>5} {'Tiempo':>6} Estado")
+    print(f"{'-'*65}")
     for t in reporte["tiendas"]:
-        icon = {"ok":"✅","bajo":"⚠","sin_productos":"❌","error_fatal":"💥","sin_motor":"❓"}.get(t["estado"],"?")
-        print(f"{t['nombre']:<30} {t['productos']:>6} {t['duracion_s']:>6}s {icon} {t['estado']}")
+        icon = {"ok":"✅","bajo":"⚠","sin_productos":"❌","error_fatal":"💥",
+                "cobertura_baja":"⚠","sin_motor":"❓"}.get(t["estado"],"?")
+        est = t.get("estimados", 0)
+        cob = t.get("cobertura_pct", 0)
+        est_str = str(est) if est > 0 else "?"
+        cob_str = f"{cob}%" if est > 0 else "N/A"
+        print(f"{t['nombre']:<28} {t['productos']:>5} {est_str:>6} {cob_str:>5} {t['duracion_s']:>5}s {icon} {t['estado']}")
         for w in t.get("warnings", []):
             print(f"  {w}")
     print(f"{'='*60}")
