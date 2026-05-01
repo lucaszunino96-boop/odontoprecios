@@ -156,18 +156,45 @@ def busqueda_por_indice(tokens_query):
         resultado = resultado & s
     return resultado
 
+# Marcas conocidas — si aparecen en el query actúan como filtro duro
+# (el producto DEBE contener la marca para aparecer en resultados)
+_MARCAS = {
+    '3m','ivoclar','dentsply','angelus','gc','kavo','sirona','voco',
+    'kerr','ultradent','ormco','american orthodontics','ormco',
+    'medibase','rekosept','septodont','molteni','zhermack','bego',
+    'woodpecker','satelec','acteon','bien air','nsk','w&h','morita',
+    'hu-friedy','hufriedy','hu friedy','american eagle',
+    'danaher','solventum','espe',
+}
+
 def busqueda_exacta(q_norm, productos, nombres_norm):
     tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
     if not tokens: return []
+
+    # Detectar marcas en el query — actúan como filtro duro
+    marcas_en_query = [t for t in tokens if t in _MARCAS]
+
     candidatos_idx = busqueda_por_indice(tokens)
     if candidatos_idx is not None:
-        return [productos[i] for i in sorted(candidatos_idx)]
-    patrones = [re.compile(r"(?<![a-z0-9])" + re.escape(t) + r"(?![a-z0-9])") for t in tokens]
-    resultados = []
-    for i, nombre in enumerate(nombres_norm):
-        nombre_junto = nombre.replace(" ", "")
-        if all(p.search(nombre) or tokens[j] in nombre_junto for j, p in enumerate(patrones)):
-            resultados.append(productos[i])
+        resultados = [productos[i] for i in sorted(candidatos_idx)]
+    else:
+        patrones = [re.compile(r"(?<![a-z0-9])" + re.escape(t) + r"(?![a-z0-9])") for t in tokens]
+        resultados = []
+        for i, nombre in enumerate(nombres_norm):
+            nombre_junto = nombre.replace(" ", "")
+            if all(p.search(nombre) or tokens[j] in nombre_junto for j, p in enumerate(patrones)):
+                resultados.append(productos[i])
+
+    # Filtro duro de marca: si el query tiene marca, solo devolver productos con esa marca
+    if marcas_en_query:
+        def tiene_marca(p):
+            n = normalizar(p["nombre"])
+            return any(m in n or m in n.replace(" ","") for m in marcas_en_query)
+        resultados_con_marca = [p for p in resultados if tiene_marca(p)]
+        # Solo aplicar el filtro si hay resultados — si no, devolver todo (evitar cero resultados)
+        if resultados_con_marca:
+            return resultados_con_marca
+
     return resultados
 
 def score_fuzzy(q_norm, nombre_norm):
@@ -581,13 +608,36 @@ def _extraer_atributos(texto):
 
 def _score_atributos(q_attrs, p_attrs, q_norm, p_norm):
     """
-    Score final = fuzzy_base + bonus_atributos_coinciden - penalizacion_conflictos.
-    Devuelve (score_0_100, detalles_list).
+    Score final = fuzzy_base + cobertura_tokens + bonus_atributos - penalizacion_conflictos.
+    Devuelve (score_0_100, base, detalles_list).
+
+    El score base combina:
+    1. token_set_ratio / partial_ratio (similitud general)
+    2. Penalización por tokens importantes del query que NO están en el producto
+       Esto evita que "COMPOSITE ULTRA FILL A3" matchee "Composite 3M P60 A3"
+       solo porque comparten "composite" y "a3".
     """
-    base = max(
+    base_fuzzy = max(
         int(fuzz.token_set_ratio(q_norm, p_norm)),
         int(fuzz.partial_ratio(q_norm, p_norm)),
     )
+
+    # Tokens importantes del query (excluye stopwords y tokens cortos/genéricos)
+    STOPWORDS_LOCAL = {"de","el","la","los","las","en","con","por","para","y","o",
+                       "e","un","una","x","a","composite","resina","adhesivo","cemento",
+                       "guante","lima","fresa","bracket","disco","anestesia"}
+    q_tokens_imp = [t for t in q_norm.split()
+                    if len(t) >= 3 and t not in STOPWORDS_LOCAL
+                    and not re.match(r'^\d+$', t)]
+
+    # Calcular cobertura: ¿cuántos tokens importantes del query están en el producto?
+    p_junto = p_norm.replace(" ", "")
+    tokens_presentes = sum(1 for t in q_tokens_imp if t in p_norm or t in p_junto)
+    tokens_ausentes = len(q_tokens_imp) - tokens_presentes
+
+    # Penalizar por tokens importantes ausentes (cada uno resta ~8 puntos del base)
+    penalizacion_cobertura = tokens_ausentes * 8 if q_tokens_imp else 0
+    base = max(0, base_fuzzy - penalizacion_cobertura)
 
     bonus = 0
     penalizacion = 0
@@ -637,8 +687,13 @@ def compra_inteligente():
 
     def buscar_linea(linea):
         """
-        Motor universal de matching para una línea de pedido.
-        Usa parser de atributos + scoring con penalización por conflicto.
+        Motor universal de matching para Compra Inteligente.
+
+        Diferencia clave vs búsqueda normal:
+        - La búsqueda normal requiere TODOS los tokens presentes (alta precisión)
+        - Compra Inteligente usa búsqueda por CUALQUIER token importante + scoring
+          con penalización para filtrar. Así encuentra "Filtek P60 A3" aunque el
+          producto se llame "Composite Filtek 3M P60 A3 x 4gr" (tokens extra no importan).
         """
         q_norm = normalizar(linea)
         tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
@@ -647,50 +702,110 @@ def compra_inteligente():
                     "aviso": "Línea muy genérica — agregá nombre de producto"}
 
         es_generica = len(tokens) == 1 and len(tokens[0]) <= 5
-
-        # Extraer atributos del pedido
         q_attrs = _extraer_atributos(linea)
 
-        # ── Paso 1: candidatos por índice invertido (rápido) ──
-        candidatos_idx = busqueda_por_indice(tokens)
-        if candidatos_idx:
-            candidatos = [productos[i] for i in sorted(candidatos_idx)]
-        else:
-            # Fallback fuzzy amplio si el índice no encontró nada
-            candidatos = []
+        # ── PASO 1: Candidatos usando OR de tokens (permisivo) ──
+        # En lugar de AND (todos los tokens), usamos unión — cualquier token
+        # que matchee en el índice hace que el producto sea candidato.
+        # El scoring con penalización se encarga del filtrado fino.
+        candidatos_idx = set()
+
+        # Tokens "ancla" — los más específicos/discriminantes
+        # Priorizamos tokens largos o alfanuméricos (marca, modelo)
+        tokens_ordenados = sorted(tokens, key=lambda t: (
+            -len(t),                          # más largo primero
+            0 if re.search(r'[0-9]', t) else 1,  # con números primero (z350, p60)
+        ))
+
+        for token in tokens_ordenados:
+            stem = stemming_basico(token)
+            # Buscar en el índice por token exacto y prefijo
+            nuevos = set()
+            if token in _indice: nuevos |= _indice[token]
+            if stem in _indice: nuevos |= _indice[stem]
+            if len(token) >= 3:
+                for key in _indice:
+                    if key.startswith(token) and not key.startswith("__sin__"):
+                        nuevos |= _indice[key]
+            candidatos_idx |= nuevos
+
+        # Si hay marcas en el query, aplicar filtro duro de marca
+        marcas_en_query = [t for t in tokens if t in _MARCAS]
+        if marcas_en_query:
+            idx_con_marca = set()
+            for m in marcas_en_query:
+                if m in _indice: idx_con_marca |= _indice[m]
+                for key in _indice:
+                    if key.startswith(m) and not key.startswith("__sin__"):
+                        idx_con_marca |= _indice[key]
+            if idx_con_marca:
+                candidatos_idx = candidatos_idx & idx_con_marca if candidatos_idx else idx_con_marca
+
+        # Si hay tokens muy específicos (modelo alfanumérico), filtrar para que
+        # al menos uno esté presente
+        tokens_especificos = [t for t in tokens_ordenados
+                               if (len(t) >= 4 or re.search(r'[0-9]', t))
+                               and t not in _MARCAS]
+        if tokens_especificos and len(candidatos_idx) > 500:
+            idx_especificos = set()
+            for t in tokens_especificos[:3]:
+                stem = stemming_basico(t)
+                if t in _indice: idx_especificos |= _indice[t]
+                if stem in _indice: idx_especificos |= _indice[stem]
+                if len(t) >= 3:
+                    for key in _indice:
+                        if key.startswith(t) and not key.startswith("__sin__"):
+                            idx_especificos |= _indice[key]
+            if idx_especificos:
+                candidatos_idx = idx_especificos
+
+        # Fallback si el índice no encontró nada
+        if not candidatos_idx:
             for i, nombre in enumerate(nombres_norm):
                 s = max(int(fuzz.partial_ratio(q_norm, nombre)),
                         int(fuzz.token_set_ratio(q_norm, nombre)))
-                if s >= 55:
-                    candidatos.append(productos[i])
+                if s >= 50:
+                    candidatos_idx.add(i)
 
-        if not candidatos:
+        if not candidatos_idx:
             return {"linea": linea, "matches": [], "generica": es_generica,
                     "aviso": "No encontramos coincidencias — probá con otro término"}
 
-        # ── Paso 2: scoring universal con penalización por conflicto ──
+        # ── PASO 2: Scoring universal para cada candidato ──
         scored = []
-        for p in candidatos:
-            p_norm = normalizar(p["nombre"])
+        for i in candidatos_idx:
+            p = productos[i]
+            p_norm = nombres_norm[i]
             p_attrs = _extraer_atributos(p["nombre"])
-            score, base, detalles = _score_atributos(q_attrs, p_attrs, q_norm, p_norm)
-            if score >= 30:  # umbral mínimo para aparecer
+
+            # Score base fuzzy
+            base = max(
+                int(fuzz.token_set_ratio(q_norm, p_norm)),
+                int(fuzz.partial_ratio(q_norm, p_norm)),
+            )
+
+            # Aplicar scoring de atributos (penaliza conflictos)
+            score, _, detalles = _score_atributos(q_attrs, p_attrs, q_norm, p_norm)
+
+            # Umbral mínimo: debe tener al menos base >= 45
+            if base >= 45 and score >= 25:
                 scored.append((score, base, detalles, p))
 
-        # Ordenar: primero por score, luego por precio
+        if not scored:
+            return {"linea": linea, "matches": [], "generica": es_generica,
+                    "aviso": "No encontramos coincidencias exactas"}
+
+        # Ordenar: score desc, luego precio asc
         scored.sort(key=lambda x: (-x[0], x[3]["precio"]))
 
-        # ── Paso 3: tomar top 5, clasificar confianza ──
+        # ── PASO 3: Armar matches con clasificación de confianza ──
         matches = []
         for score, base, detalles, p in scored[:5]:
-            # Detectar si hay conflictos críticos
             conflictos = [d for d in detalles if d.startswith("✗")]
-            sin_conflicto = len(conflictos) == 0
 
-            # Etiqueta de confianza
-            if score >= 85 and sin_conflicto:
+            if score >= 80 and not conflictos:
                 nivel = "alta"
-            elif score >= 60 and len(conflictos) <= 1:
+            elif score >= 55 and len(conflictos) <= 1:
                 nivel = "media"
             else:
                 nivel = "baja"
@@ -714,6 +829,8 @@ def compra_inteligente():
             aviso = "Agregá marca, modelo o detalle para mejores resultados"
         elif matches and matches[0]["confianza_nivel"] == "baja":
             aviso = "No encontramos coincidencia exacta — mostramos opciones similares"
+        elif matches and matches[0]["conflictos"]:
+            aviso = f"Atención: {', '.join(matches[0]['conflictos'][:2])}"
 
         return {
             "linea": linea,
