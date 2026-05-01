@@ -385,6 +385,15 @@ def stats():
         por_tienda[t] = por_tienda.get(t, 0) + 1
     return jsonify({"total": len(productos), "por_tienda": por_tienda})
 
+@app.route("/api/reporte-scraping")
+def reporte_scraping():
+    """Devuelve el último reporte de scraping con estadísticas por tienda."""
+    reporte_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reporte_scraping.json")
+    if not os.path.exists(reporte_path):
+        return jsonify({"error": "No hay reporte disponible aún. Corré el scraper primero."}), 404
+    with open(reporte_path, encoding="utf-8") as f:
+        return jsonify(json.load(f))
+
 
 _actualizar_si_es_necesario()
 
