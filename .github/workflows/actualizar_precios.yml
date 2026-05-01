@@ -25,11 +25,52 @@ jobs:
       - name: Correr scraper
         run: python scraper.py
 
+      - name: Verificar productos.json generado
+        run: |
+          if [ ! -f productos.json ]; then
+            echo "❌ ERROR: productos.json no fue generado"
+            exit 1
+          fi
+          SIZE=$(wc -c < productos.json)
+          COUNT=$(python3 -c "import json; d=json.load(open('productos.json')); print(len(d))")
+          echo "✅ productos.json: ${COUNT} productos, ${SIZE} bytes"
+          if [ "$COUNT" -lt 5000 ]; then
+            echo "⚠ ALERTA: menos de 5000 productos — puede haber un problema"
+          fi
+
+      - name: Mostrar resumen del reporte
+        run: |
+          if [ -f reporte_scraping.json ]; then
+            python3 -c "
+          import json
+          r = json.load(open('reporte_scraping.json'))
+          print(f'Total: {r[\"total_productos\"]} productos en {r[\"duracion_total_s\"]}s')
+          print()
+          for t in r['tiendas']:
+              icon = {'ok':'✅','bajo':'⚠','sin_productos':'❌','error_fatal':'💥'}.get(t['estado'],'?')
+              print(f'{icon} {t[\"nombre\"]}: {t[\"productos\"]} productos ({t[\"duracion_s\"]}s)')
+              for w in t.get('warnings',[]):
+                  print(f'   {w}')
+          "
+          fi
+
       - name: Guardar y subir cambios
         run: |
           git config user.name "OdontoPrecio Bot"
           git config user.email "bot@odontoprecios.onrender.com"
-          git add productos.json historial.json 2>/dev/null || true
+          git add productos.json reporte_scraping.json historial.json 2>/dev/null || true
           git diff --cached --quiet && echo "Sin cambios." && exit 0
           git commit -m "Actualizacion automatica de precios: $(date +'%d/%m/%Y')"
           git push --force-with-lease origin main
+          echo "✅ Push exitoso a GitHub"
+
+      - name: Trigger Render deploy (opcional)
+        if: success()
+        run: |
+          if [ -n "$RENDER_DEPLOY_HOOK" ]; then
+            curl -s "$RENDER_DEPLOY_HOOK" && echo "✅ Render deploy triggereado"
+          else
+            echo "ℹ RENDER_DEPLOY_HOOK no configurado — Render descarga desde GitHub automáticamente"
+          fi
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
