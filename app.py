@@ -508,7 +508,7 @@ _COLORES = [
 # Pesos de cada atributo: cuánto suma un match y cuánto penaliza un conflicto
 _PESOS = {
     'tono':       {'match': 30, 'conflict': -65},  # A3≠A2 = crítico
-    'modelo':     {'match': 25, 'conflict': -45},  # Z350≠Z250
+    'modelo':     {'match': 25, 'conflict': -65},  # Z350≠Z250 — penalización fuerte
     'talle':      {'match': 20, 'conflict': -55},  # M≠L
     'material':   {'match': 15, 'conflict': -55},  # nitrilo≠latex
     'calibre':    {'match': 25, 'conflict': -60},  # #25≠#35
@@ -810,6 +810,14 @@ def compra_inteligente():
             else:
                 nivel = "baja"
 
+            # Detectar si el query pedía tono/tipo pero el producto no lo especifica
+            # (el producto tiene variantes — el usuario tiene que elegir en la tienda)
+            nota_variante = None
+            q_tono = q_attrs.get("tono")
+            p_tono = p_attrs.get("tono")
+            if q_tono and p_tono is None:
+                nota_variante = f"Verificar tono {q_tono.upper()} en tienda"
+
             matches.append({
                 "id": p["id"],
                 "nombre": p["nombre"],
@@ -822,6 +830,7 @@ def compra_inteligente():
                 "confianza_nivel": nivel,
                 "detalles_match": detalles[:4],
                 "conflictos": conflictos,
+                "nota_variante": nota_variante,
             })
 
         aviso = None
