@@ -297,7 +297,12 @@ def formatear_precio(precio):
     return "$" + f"{precio:,.0f}".replace(",", ".")
 
 def hacer_producto(tienda, nombre, precio, url_prod, imagen):
-    return {
+    try:
+        from catalogador import catalogar
+        attrs = catalogar(nombre)
+    except Exception:
+        attrs = {}
+    prod = {
         "id": f"{tienda['slug']}_{hashlib.md5(url_prod.encode()).hexdigest()[:16]}",
         "nombre": nombre.strip()[:200],
         "precio": precio,
@@ -309,6 +314,9 @@ def hacer_producto(tienda, nombre, precio, url_prod, imagen):
         "tienda_color": tienda["color"],
         "actualizado": datetime.now().strftime("%d/%m/%Y %H:%M"),
     }
+    if attrs:
+        prod["attrs"] = attrs
+    return prod
 
 # ─── SITEMAP ──────────────────────────────────────────────────────────────────
 def _parsear_sitemap(texto, filtro):
