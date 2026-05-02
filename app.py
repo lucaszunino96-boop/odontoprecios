@@ -6,6 +6,7 @@ import re, json, os, threading, hashlib
 from flask import Flask, render_template, request, jsonify, Response
 from rapidfuzz import fuzz
 from scraper import cargar_productos, correr_scraper, TIENDAS
+from catalogador import catalogar, clasificar_tokens, normalizar as cat_normalizar, _TOKENS_GENERICOS
 
 app = Flask(__name__)
 
@@ -220,29 +221,143 @@ def busqueda_exacta(q_norm, productos, nombres_norm):
 
     return resultados
 
-def score_fuzzy(q_norm, nombre_norm):
-    tokens_q = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 2]
-    if not tokens_q: return 0
-    nombre_junto = nombre_norm.replace(" ", "")
-    alguno_presente = any(
-        any(tq in tn or tn in tq for tn in nombre_norm.split()) or tq in nombre_junto
-        for tq in tokens_q
+# ─── MOTOR DE RELEVANCIA ──────────────────────────────────────────────────────
+#
+# Reemplaza score_fuzzy por un motor basado en clasificación de tokens.
+# Tokens específicos (marcas, modelos, tonos, drogas) dominan el ranking.
+# Tokens genéricos (composite, anestesia) aportan poco.
+# rapidfuzz solo se usa para corrección de typos.
+#
+
+import re as _re
+
+def _token_presente_en(tok: str, nombre_norm: str, nombre_junto: str) -> bool:
+    tok_clean = _re.sub(r'^[^a-z0-9]+', '', tok)
+    if not tok_clean:
+        return False
+    # Tokens cortos (≤3 chars: a3, m, fg, #25) → buscar palabra completa
+    if len(tok_clean) <= 3:
+        return bool(_re.search(r'\b' + _re.escape(tok_clean) + r'\b', nombre_norm))
+    # Tokens largos → exacto, junto, o como prefijo de token en el nombre
+    return (
+        tok_clean in nombre_norm or
+        tok_clean in nombre_junto or
+        any(
+            nt.startswith(tok_clean) or tok_clean.startswith(_re.sub(r'[a-z]+$', '', nt))
+            for nt in nombre_norm.split() if len(nt) >= 2
+        )
     )
-    if not alguno_presente: return 0
-    return max(int(fuzz.partial_ratio(q_norm, nombre_norm)),
-               int(fuzz.token_set_ratio(q_norm, nombre_norm)))
+
+def score_relevancia(q_tokens: dict, q_attrs: dict,
+                     nombre_norm: str, prod_attrs: dict) -> int:
+    """
+    Score de relevancia basado en tokens clasificados.
+    +120 por token específico presente
+    -80  por token específico ausente
+    -200 si NINGÚN token específico presente (irrelevante)
+    Penalización proporcional si cobertura parcial de específicos
+    -150 por conflicto de atributo crítico
+    -200 por conflicto de modelo
+    """
+    score = 0
+    nombre_junto = nombre_norm.replace(" ", "")
+    n_esp = len(q_tokens["especificos"])
+    presentes = []
+    ausentes = []
+
+    for tok in q_tokens["especificos"]:
+        if _token_presente_en(tok, nombre_norm, nombre_junto):
+            presentes.append(tok)
+            score += 120
+        else:
+            ausentes.append(tok)
+            score -= 80
+
+    # Regla clave: si el query tiene específicos y NINGUNO está → irrelevante
+    if n_esp > 0 and not presentes:
+        return -200
+
+    # Penalización proporcional por cobertura incompleta
+    if n_esp >= 2 and ausentes:
+        frac_ausente = len(ausentes) / n_esp
+        # Modelo ausente penaliza más que tono ausente
+        modelo_ausente = any(_re.search(r'[a-z]+[0-9]{2,}', t) for t in ausentes)
+        base_pen = 180 if modelo_ausente else 120
+        score -= int(frac_ausente * base_pen)
+
+    # Tokens genéricos: bonus menor
+    for tok in q_tokens["genericos"]:
+        if tok in nombre_norm or tok in nombre_junto:
+            score += 20
+
+    # Frase completa: bonus si el query aparece textualmente
+    q_all = " ".join(q_tokens["todos"])
+    if fuzz.partial_ratio(q_all, nombre_norm) >= 88:
+        score += 80
+
+    # Conflictos de atributos críticos
+    for attr in ["tono", "material", "calibre", "droga", "talle"]:
+        qv = q_attrs.get(attr)
+        pv = prod_attrs.get(attr)
+        if qv and pv:
+            qs = str(qv).lower().replace("-", "")
+            ps = str(pv).lower().replace("-", "")
+            if qs != ps and not qs.startswith(ps) and not ps.startswith(qs):
+                score -= 150
+
+    # Conflicto de modelo
+    qm = q_attrs.get("modelo")
+    pm = prod_attrs.get("modelo")
+    if qm and pm:
+        pq = _re.sub(r'[a-z]+$', '', qm)
+        pp = _re.sub(r'[a-z]+$', '', pm)
+        if not (pm == qm or pm.startswith(pq) or qm.startswith(pp)):
+            score -= 200
+
+    return score
+
+def score_fuzzy_typo(q_norm: str, nombre_norm: str) -> int:
+    """rapidfuzz solo para corrección de typos — no como ranking principal."""
+    return max(
+        int(fuzz.token_set_ratio(q_norm, nombre_norm)),
+        int(fuzz.partial_ratio(q_norm, nombre_norm)),
+    )
 
 def busqueda_fuzzy(q_norm, productos, nombres_norm, excluir_ids=None):
+    """
+    Búsqueda fuzzy para typos — se activa cuando la búsqueda exacta da pocos resultados.
+    Usa score_relevancia si hay tokens clasificados, fallback a rapidfuzz si no.
+    """
     excluir = excluir_ids or set()
+    q_tokens = clasificar_tokens(q_norm)
+    q_attrs = catalogar(q_norm)
+    tiene_especificos = bool(q_tokens["especificos"])
+
     resultados = []
     for i, nombre in enumerate(nombres_norm):
         p = productos[i]
         if p["id"] in excluir: continue
-        s = score_fuzzy(q_norm, nombre)
-        if s >= MIN_FUZZY:
-            resultados.append((s, p))
+
+        nombre_junto = nombre.replace(" ", "")
+
+        if tiene_especificos:
+            # Motor de relevancia
+            p_attrs = catalogar(p["nombre"])
+            s = score_relevancia(q_tokens, q_attrs, nombre, p_attrs)
+            if s >= -50:  # umbral generoso para fuzzy
+                resultados.append((s, p))
+        else:
+            # Solo genéricos → usar rapidfuzz con umbral alto
+            s = score_fuzzy_typo(q_norm, nombre)
+            if s >= MIN_FUZZY:
+                resultados.append((s, p))
+
     resultados.sort(key=lambda x: -x[0])
     return [p for _, p in resultados]
+
+def sort_por_relevancia_precio(productos_con_score):
+    """Ordena por score desc, luego precio asc dentro del mismo score."""
+    return [p for _, p in sorted(productos_con_score, key=lambda x: (-x[0], x[1]["precio"]))]
 
 def sort_por_precio(productos):
     con = sorted([p for p in productos if p["precio"] > 0], key=lambda p: p["precio"])
@@ -342,26 +457,87 @@ def buscar():
     productos = get_productos()
     nombres_norm = get_nombres_norm()
 
-    exactos = busqueda_exacta(q_norm, productos, nombres_norm)
-    fuzzy = []
-    if len(exactos) < 10:
-        ids_exactos = {p["id"] for p in exactos}
-        fuzzy = busqueda_fuzzy(q_norm, productos, nombres_norm, excluir_ids=ids_exactos)
+    # Clasificar tokens del query
+    q_tokens = clasificar_tokens(q_norm)
+    q_attrs = catalogar(q_norm)
+    tiene_especificos = bool(q_tokens["especificos"])
 
-    todos = sort_por_precio(exactos + fuzzy)
+    # ── Candidatos por índice invertido ──
+    tokens_idx = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
+    candidatos_idx = busqueda_por_indice(tokens_idx)
+
+    if candidatos_idx is not None:
+        candidatos = list(candidatos_idx)
+    else:
+        candidatos = list(range(len(productos)))
+
+    # Filtro duro de marca
+    marcas_q = [t for t in tokens_idx if t in _MARCAS]
+    if marcas_q:
+        def _tiene_marca(i):
+            n = nombres_norm[i]
+            return any(m in n or m in n.replace(" ","") for m in marcas_q)
+        candidatos_con_marca = [i for i in candidatos if _tiene_marca(i)]
+        if candidatos_con_marca:
+            candidatos = candidatos_con_marca
+
+    # Filtro duro de modelo
+    modelo_q_local = q_attrs.get("modelo")
+    if modelo_q_local and len(modelo_q_local) >= 3:
+        import re as _re2
+        raiz_q_l = _re2.sub(r'^[a-z]+', '', modelo_q_local)
+        prefijo_q_l = _re2.sub(r'[a-z]+$', '', modelo_q_local)
+        def _modelo_ok_local(i):
+            pa = catalogar(productos[i]["nombre"])
+            mp = pa.get("modelo")
+            pn = nombres_norm[i]
+            if mp is None:
+                return modelo_q_local in pn or raiz_q_l in pn
+            prefijo_p_l = _re2.sub(r'[a-z]+$', '', mp)
+            return (mp == modelo_q_local or
+                    mp.startswith(prefijo_q_l) or
+                    modelo_q_local.startswith(prefijo_p_l))
+        candidatos_modelo = [i for i in candidatos if _modelo_ok_local(i)]
+        if candidatos_modelo:
+            candidatos = candidatos_modelo
+
+    # ── Scoring de relevancia ──
+    if tiene_especificos:
+        scored = []
+        for i in candidatos:
+            p = productos[i]
+            p_norm = nombres_norm[i]
+            p_attrs = catalogar(p["nombre"])
+            s = score_relevancia(q_tokens, q_attrs, p_norm, p_attrs)
+            scored.append((s, p))
+        # Ordenar por score desc, luego precio asc
+        scored.sort(key=lambda x: (-x[0], x[1]["precio"]))
+        # Umbral: mostrar solo los relevantes (score > -100)
+        todos = [p for s, p in scored if s > -100]
+        # Si muy pocos, ampliar umbral
+        if len(todos) < 5:
+            todos = [p for s, p in scored if s > -200]
+    else:
+        # Query genérico → sort por precio
+        todos = sort_por_precio([productos[i] for i in candidatos])
+
+    # Typo fallback: si no hay nada, buscar fuzzy amplio
+    if not todos:
+        todos = busqueda_fuzzy(q_norm, productos, nombres_norm)
+
     total = len(todos)
 
-    # Aviso si query muy genérico (1 token corto y muchos resultados)
-    tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
+    # Avisos
     aviso = None
-    if len(tokens) == 1 and total > 200:
+    if not tiene_especificos and total > 200:
         aviso = "Agregá marca, modelo o medida para resultados más precisos"
 
-    # Sugerencia si no hay resultados exactos pero sí fuzzy
     sugerencia = None
-    if not exactos and fuzzy:
-        mejor = fuzzy[0]["nombre"]
-        sugerencia = f"¿Buscabas: {mejor[:50]}?"
+    if not todos:
+        # Buscar sugerencia fuzzy
+        sugerencia_prods = busqueda_fuzzy(q_norm, productos, nombres_norm)
+        if sugerencia_prods:
+            sugerencia = f"¿Buscabas: {sugerencia_prods[0]['nombre'][:50]}?"
 
     return jsonify({
         "resultados": todos[offset:offset+limit],
