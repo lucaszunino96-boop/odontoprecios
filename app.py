@@ -16,8 +16,17 @@ _file_lock = threading.Lock()
 
 def get_productos():
     if _cache["productos"] is None:
-        _cache["productos"] = cargar_productos()
+        todos = cargar_productos()
+        # Filtro de calidad mínima: descartar nombres muy cortos o sin precio útil
+        _cache["productos"] = [
+            p for p in todos
+            if len(p.get("nombre", "").strip()) >= 8      # nombre muy corto = mal scraping
+            and p.get("precio", 0) > 0                    # sin precio no sirve
+        ]
         _cache["nombres_norm"] = None
+        descartados = len(todos) - len(_cache["productos"])
+        if descartados > 0:
+            print(f"  Filtro calidad: {descartados} productos descartados ({len(_cache['productos'])} restantes)")
     return _cache["productos"]
 
 def get_nombres_norm():
@@ -235,18 +244,20 @@ def _token_presente_en(tok: str, nombre_norm: str, nombre_junto: str) -> bool:
     tok_clean = _re.sub(r'^[^a-z0-9]+', '', tok)
     if not tok_clean:
         return False
-    # Tokens cortos (≤3 chars: a3, m, fg, #25) → buscar palabra completa
+    # Tokens cortos (≤3 chars: a3, m, fg) → buscar palabra completa
     if len(tok_clean) <= 3:
         return bool(_re.search(r'\b' + _re.escape(tok_clean) + r'\b', nombre_norm))
-    # Tokens largos → exacto, junto, o como prefijo de token en el nombre
-    return (
-        tok_clean in nombre_norm or
-        tok_clean in nombre_junto or
-        any(
-            nt.startswith(tok_clean) or tok_clean.startswith(_re.sub(r'[a-z]+$', '', nt))
-            for nt in nombre_norm.split() if len(nt) >= 2
-        )
-    )
+    # Exacto o dentro del nombre junto
+    if tok_clean in nombre_norm or tok_clean in nombre_junto:
+        return True
+    # Prefijo inteligente: SOLO para tokens alfanuméricos (modelos como z350, p60)
+    # Evita que z350xt matchee "xt" o "filtek" (tokens sin números)
+    for nt in nombre_norm.split():
+        if len(nt) < 2: continue
+        if not _re.search(r'[0-9]', nt): continue  # solo tokens con números
+        if tok_clean.startswith(nt): return True    # z350xt startswith z350
+        if nt.startswith(tok_clean): return True    # z350 startswith p60 → False
+    return False
 
 def score_relevancia(q_tokens: dict, q_attrs: dict,
                      nombre_norm: str, prod_attrs: dict) -> int:
@@ -261,6 +272,13 @@ def score_relevancia(q_tokens: dict, q_attrs: dict,
     """
     score = 0
     nombre_junto = nombre_norm.replace(" ", "")
+
+    # Penalizar productos "simil/similar/imitacion" si el query no lo pide
+    # "Composite simil P60" no es P60 — debe quedar muy abajo
+    q_all_str = " ".join(q_tokens["todos"])
+    if _re.search(r'\b(simil|similar|imitacion|generico)\b', nombre_norm):
+        if not _re.search(r'\b(simil|similar|imitacion|generico)\b', q_all_str):
+            score -= 200
     n_esp = len(q_tokens["especificos"])
     presentes = []
     ausentes = []
@@ -471,15 +489,23 @@ def buscar():
     else:
         candidatos = list(range(len(productos)))
 
-    # Filtro duro de marca
+    # Filtro de marca: preferir productos con la marca, pero NO excluir
+    # si el producto tiene el modelo correcto (ej: "P60 POSTERIORES" sin "3m")
     marcas_q = [t for t in tokens_idx if t in _MARCAS]
+    modelo_q_para_marca = q_attrs.get("modelo")
     if marcas_q:
         def _tiene_marca(i):
             n = nombres_norm[i]
             return any(m in n or m in n.replace(" ","") for m in marcas_q)
-        candidatos_con_marca = [i for i in candidatos if _tiene_marca(i)]
-        if candidatos_con_marca:
-            candidatos = candidatos_con_marca
+        def _tiene_modelo(i):
+            if not modelo_q_para_marca: return False
+            n = nombres_norm[i]
+            return modelo_q_para_marca in n or modelo_q_para_marca in n.replace(" ","")
+        # Incluir: tiene marca, O tiene el modelo (aunque no tenga la marca)
+        candidatos_marca_o_modelo = [i for i in candidatos
+                                      if _tiene_marca(i) or _tiene_modelo(i)]
+        if candidatos_marca_o_modelo:
+            candidatos = candidatos_marca_o_modelo
 
     # Filtro duro de modelo
     modelo_q_local = q_attrs.get("modelo")
