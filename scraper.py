@@ -1249,10 +1249,24 @@ def correr_scraper():
     reporte["tiendas_cobertura_baja"] = [t["nombre"] for t in reporte["tiendas"] if t["estado"] == "cobertura_baja"]
     reporte["duracion_total_s"] = duracion_total
 
-    # Guardar productos.json
+    # Guardar productos.json con metadata de run
+    # La metadata garantiza que el archivo siempre cambia entre runs,
+    # lo que hace que git siempre detecte un diff real y commitee.
+    import hashlib as _hl
+    _contenido = json.dumps(todos, ensure_ascii=False)
+    _hash = _hl.md5(_contenido.encode()).hexdigest()[:16]
+    _metadata = {
+        "__meta__": {
+            "fecha_run": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "total_productos": len(todos),
+            "hash_productos": _hash,
+        }
+    }
+    # Guardar lista + metadata como objeto con dos claves
+    _output = {"productos": todos, "meta": _metadata["__meta__"]}
     with open(DB_PATH, "w", encoding="utf-8") as f:
-        json.dump(todos, f, ensure_ascii=False)
-    print(f"✅ productos.json guardado: {len(todos)} productos ({os.path.getsize(DB_PATH)//1024}KB)")
+        json.dump(_output, f, ensure_ascii=False)
+    print(f"✅ productos.json guardado: {len(todos)} productos, hash={_hash} ({os.path.getsize(DB_PATH)//1024}KB)")
 
     # Guardar reporte_scraping.json
     with open(REPORTE_PATH, "w", encoding="utf-8") as f:
