@@ -1,63 +1,231 @@
 """
-app.py - Servidor web de OdontoPrecio.
+app.py - OdontoPrecio
+
+Arquitectura de datos:
+- productos.json se descarga desde GitHub Raw al iniciar
+- Se verifica cada 15 minutos si cambió (por ETag/hash)
+- Si falla GitHub, usa la última copia válida en disco
+- Sin dependencia del filesystem efímero de Render
 """
 
-import re, json, os, threading, hashlib
+import re, json, os, threading, hashlib, time, urllib.request
 from flask import Flask, render_template, request, jsonify, Response
 from rapidfuzz import fuzz
 from scraper import cargar_productos, correr_scraper, TIENDAS
-from catalogador import catalogar, clasificar_tokens, normalizar as cat_normalizar, _TOKENS_GENERICOS
+from catalogador import catalogar, clasificar_tokens, _TOKENS_GENERICOS
 
 app = Flask(__name__)
 
-# ─── Cache ────────────────────────────────────────────────────────────────────
-_cache = {"productos": None, "historial": None, "nombres_norm": None}
+# ─── CONFIGURACIÓN GITHUB RAW ─────────────────────────────────────────────────
+GITHUB_RAW_URL = os.environ.get(
+    "PRODUCTOS_JSON_URL",
+    "https://raw.githubusercontent.com/lucaszunino96-boop/odontoprecios/main/productos.json"
+)
+CACHE_LOCAL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "productos_cache.json")
+REFRESH_INTERVAL = 15 * 60  # 15 minutos
+
+# ─── ESTADO ──────────────────────────────────────────────────────────────────
+_estado = {
+    "productos": None,
+    "nombres_norm": None,
+    "historial": None,
+    "ultima_carga": None,       # datetime de la última carga exitosa
+    "origen": None,             # "github" | "cache_local" | "disco"
+    "hash_actual": None,        # hash de productos del scraper
+    "fecha_run": None,          # fecha_run del scraper (del campo meta)
+    "total": 0,
+    "error_ultimo": None,
+    "refresh_en_curso": False,
+}
+_data_lock = threading.Lock()
 _file_lock = threading.Lock()
 
-def get_productos():
-    if _cache["productos"] is None:
-        todos = cargar_productos()
-        # Filtro de calidad mínima: descartar nombres muy cortos o sin precio útil
-        _cache["productos"] = [
-            p for p in todos
-            if len(p.get("nombre", "").strip()) >= 8      # nombre muy corto = mal scraping
-            and p.get("precio", 0) > 0                    # sin precio no sirve
+
+# ─── CARGA DE PRODUCTOS DESDE GITHUB ─────────────────────────────────────────
+
+def _descargar_json_github():
+    """Descarga productos.json desde GitHub Raw. Retorna (bytes, etag) o lanza excepción."""
+    req = urllib.request.Request(
+        GITHUB_RAW_URL,
+        headers={"User-Agent": "OdontoPrecio/1.0", "Cache-Control": "no-cache"}
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = resp.read()
+        etag = resp.headers.get("ETag", "")
+        return data, etag
+
+def _hash_datos(data: bytes) -> str:
+    return hashlib.md5(data).hexdigest()[:16]
+
+def _cargar_desde_bytes(data: bytes) -> tuple:
+    """
+    Soporta dos formatos:
+    - Nuevo: {"productos": [...], "meta": {...}}
+    - Viejo: [...] (compatibilidad)
+    Retorna (lista_productos, meta_dict)
+    """
+    parsed = json.loads(data)
+    if isinstance(parsed, dict) and "productos" in parsed:
+        productos = parsed["productos"]
+        meta = parsed.get("meta", {})
+    else:
+        productos = parsed  # formato viejo: lista directa
+        meta = {}
+    filtrados = [
+        p for p in productos
+        if len(p.get("nombre", "").strip()) >= 8
+        and p.get("precio", 0) > 0
+    ]
+    return filtrados, meta
+
+def cargar_productos_inicial():
+    """
+    Carga productos al iniciar la app.
+    Orden de prioridad:
+    1. GitHub Raw (fresco)
+    2. Cache local productos_cache.json (si GitHub falla)
+    3. productos.json del disco (fallback final)
+    """
+    from datetime import datetime
+
+    # Intento 1: GitHub Raw
+    try:
+        print("  Descargando productos.json desde GitHub Raw...")
+        data, etag = _descargar_json_github()
+        productos, meta = _cargar_desde_bytes(data)
+        h = meta.get("hash_productos") or _hash_datos(data)
+        fecha_run = meta.get("fecha_run", "")
+
+        # Guardar cache local
+        with open(CACHE_LOCAL, "wb") as f:
+            f.write(data)
+
+        with _data_lock:
+            _estado["productos"] = productos
+            _estado["nombres_norm"] = None
+            _estado["ultima_carga"] = datetime.now()
+            _estado["origen"] = "github"
+            _estado["hash_actual"] = h
+            _estado["total"] = len(productos)
+            _estado["error_ultimo"] = None
+            _estado["fecha_run"] = fecha_run
+
+        print(f"  ✅ GitHub Raw: {len(productos)} productos (hash: {h}, run: {fecha_run})")
+        construir_indice(productos)
+        return
+
+    except Exception as e:
+        print(f"  ⚠ GitHub Raw falló: {e}")
+        _estado["error_ultimo"] = str(e)
+
+    # Intento 2: Cache local
+    if os.path.exists(CACHE_LOCAL):
+        try:
+            print("  Usando cache local productos_cache.json...")
+            with open(CACHE_LOCAL, "rb") as f:
+                data = f.read()
+            productos, meta = _cargar_desde_bytes(data)
+            h = meta.get("hash_productos") or _hash_datos(data)
+            fecha_run = meta.get("fecha_run", "")
+
+            with _data_lock:
+                _estado["productos"] = productos
+                _estado["nombres_norm"] = None
+                _estado["ultima_carga"] = datetime.now()
+                _estado["origen"] = "cache_local"
+                _estado["hash_actual"] = h
+                _estado["total"] = len(productos)
+                _estado["fecha_run"] = fecha_run
+
+            print(f"  ✅ Cache local: {len(productos)} productos")
+            construir_indice(productos)
+            return
+        except Exception as e:
+            print(f"  ⚠ Cache local falló: {e}")
+
+    # Intento 3: Disco (productos.json del deploy)
+    try:
+        print("  Usando productos.json del disco...")
+        productos_disco = cargar_productos()
+        productos = [
+            p for p in productos_disco
+            if len(p.get("nombre", "").strip()) >= 8
+            and p.get("precio", 0) > 0
         ]
-        _cache["nombres_norm"] = None
-        descartados = len(todos) - len(_cache["productos"])
-        if descartados > 0:
-            print(f"  Filtro calidad: {descartados} productos descartados ({len(_cache['productos'])} restantes)")
-    return _cache["productos"]
+        with _data_lock:
+            _estado["productos"] = productos
+            _estado["nombres_norm"] = None
+            _estado["ultima_carga"] = datetime.now()
+            _estado["origen"] = "disco"
+            _estado["total"] = len(productos)
+
+        print(f"  ✅ Disco: {len(productos)} productos")
+        construir_indice(productos)
+    except Exception as e:
+        print(f"  ❌ Disco también falló: {e}")
+
+
+def verificar_actualizacion():
+    """
+    Corre en background cada 15 minutos.
+    Compara el hash del JSON en GitHub con el actual.
+    Si cambió, recarga.
+    """
+    from datetime import datetime
+
+    while True:
+        time.sleep(REFRESH_INTERVAL)
+        if _estado["refresh_en_curso"]:
+            continue
+
+        try:
+            _estado["refresh_en_curso"] = True
+            print(f"[{datetime.now().strftime('%H:%M')}] Verificando actualizaciones...")
+
+            data, _ = _descargar_json_github()
+            productos, meta = _cargar_desde_bytes(data)
+            h = meta.get("hash_productos") or _hash_datos(data)
+
+            if h == _estado.get("hash_actual"):
+                print(f"  Sin cambios (hash: {h})")
+                continue
+
+            fecha_run = meta.get("fecha_run", "")
+            print(f"  Hash cambió {_estado.get('hash_actual')} → {h}, recargando (run: {fecha_run})...")
+
+            # Guardar cache
+            with open(CACHE_LOCAL, "wb") as f:
+                f.write(data)
+
+            # Actualizar estado
+            with _data_lock:
+                _estado["productos"] = productos
+                _estado["nombres_norm"] = None
+                _estado["ultima_carga"] = datetime.now()
+                _estado["origen"] = "github"
+                _estado["hash_actual"] = h
+                _estado["total"] = len(productos)
+                _estado["error_ultimo"] = None
+                _estado["fecha_run"] = fecha_run
+
+            # Reconstruir índice
+            construir_indice(productos)
+            print(f"  ✅ Recargado: {len(productos)} productos")
+
+        except Exception as e:
+            print(f"  ⚠ Error en verificación: {e}")
+            _estado["error_ultimo"] = str(e)
+        finally:
+            _estado["refresh_en_curso"] = False
+
+
+def get_productos():
+    if _estado["productos"] is None:
+        cargar_productos_inicial()
+    return _estado["productos"] or []
 
 def get_nombres_norm():
     return get_nombres_norm_con_indice()
-
-def _actualizar_si_es_necesario():
-    import datetime
-    try:
-        from scraper import DB_PATH
-        if os.path.exists(DB_PATH):
-            mod_time = os.path.getmtime(DB_PATH)
-            edad_dias = (datetime.datetime.now().timestamp() - mod_time) / 86400
-            if edad_dias < 2:
-                print(f"Datos actualizados hace {edad_dias:.1f} dias — no es necesario scrapear.")
-                return
-            print(f"Datos tienen {edad_dias:.1f} dias — actualizando...")
-        else:
-            print("No hay datos — scrapeando por primera vez...")
-        def _run():
-            nuevos = correr_scraper()
-            _cache["productos"] = nuevos
-            _cache["nombres_norm"] = None
-            try:
-                hist = guardar_historial(nuevos)
-                _cache["historial"] = hist
-            except Exception as e:
-                print(f"Error guardando historial: {e}")
-            print(f"Auto-actualizacion completada: {len(nuevos)} productos.")
-        threading.Thread(target=_run, daemon=True).start()
-    except Exception as e:
-        print(f"Error en auto-actualizacion: {e}")
 
 
 # ─── BÚSQUEDA ─────────────────────────────────────────────────────────────────
@@ -66,41 +234,6 @@ from collections import defaultdict
 
 STOPWORDS = {"de","el","la","lo","los","las","en","con","por","para","y","o","e","un","una","x","a"}
 MIN_FUZZY = 72
-
-SINONIMOS_GRUPOS = [
-    {"composite","resina","compomero","restaurador"},
-    {"anestesia","anescart","carpule","mepivacaina","lidocaina","articaina",
-     "scandicaine","mepinor","alphacaine","ultracaine","septocaine"},
-    {"gutapercha","guttapercha","guta","conos gutapercha","puntas gutapercha"},
-    {"lima","limas","endodoncia","protaper","waveone","reciproc","mtwo"},
-    {"fresa","fresas","turbina","micromotor","contraangulo"},
-    {"bracket","brackets","ortodoncia","arco","alambre"},
-    {"adhesivo","bond","primer","bonding"},
-    {"cemento","ionomero","ionómero","relyx","panavia","multilink"},
-    {"blanqueamiento","blanqueador","whitening","peroxido"},
-    {"impresion","alginato","silicona","vinilpolisiloxano","putty"},
-    {"guante","guantes","latex","nitrilo","bioseguridad"},
-    {"radiografia","rx","pelicula","placa radiografica"},
-    {"poste","perno","fibra de vidrio"},
-    {"sellante","sellador","fisuras"},
-    {"yeso","escayola","piedra dental"},
-    {"protesis","acrilico","dentadura"},
-    {"banda de matriz","rollo de matriz","tofflemire","palodent"},
-    {"hipoclorito","irrigante","edta","irrigacion"},
-    {"cirugia","bisturi","suturas","periodoncia"},
-    {"implante","implantologia","pilar","tornillo"},
-]
-
-def _norm_sin(s):
-    t = unicodedata.normalize("NFD", s.lower())
-    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
-    return re.sub(r" +", " ", re.sub(r"[^a-z0-9 ]", " ", t)).strip()
-
-_SINONIMOS_MAP = {}
-for _grupo in SINONIMOS_GRUPOS:
-    for _termino in _grupo:
-        _tn = _norm_sin(_termino)
-        _SINONIMOS_MAP[_tn] = {_norm_sin(s) for s in _grupo if s != _termino}
 
 def normalizar(texto):
     t = unicodedata.normalize("NFD", texto.lower())
@@ -116,14 +249,33 @@ def stemming_basico(token):
     if token.endswith("s") and len(token) > 3:  return token[:-1]
     return token
 
+# Marcas — filtro duro
+_MARCAS = {
+    '3m','ivoclar','dentsply','angelus','gc','kavo','sirona','voco',
+    'kerr','ultradent','ormco','medibase','septodont','zhermack','bego',
+    'woodpecker','nsk','morita','hu-friedy','solventum','espe',
+    'american orthodontics','coltene','shofu','tokuyama','bisco',
+    'anescart','alphacaine','mepinor','scandicaine','ultracaine',
+    'klepp','metabiomed','maillefer',
+}
+
 # ─── ÍNDICE INVERTIDO ─────────────────────────────────────────────────────────
 _indice: dict = {}
 _nombres_norm_cache: list = []
 
 def construir_indice(productos):
     global _indice, _nombres_norm_cache
+    from catalogador import SINONIMOS_GRUPOS, _norm_sin
     indice = defaultdict(set)
     nombres_norm = []
+
+    # Mapa de sinónimos
+    sin_map = {}
+    for grupo in SINONIMOS_GRUPOS:
+        for termino in grupo:
+            tn = _norm_sin(termino)
+            sin_map[tn] = {_norm_sin(s) for s in grupo if s != termino}
+
     for i, p in enumerate(productos):
         norm = normalizar(p["nombre"])
         nombres_norm.append(norm)
@@ -131,12 +283,15 @@ def construir_indice(productos):
         for token in tokens:
             stem = stemming_basico(token)
             indice[token].add(i)
-            if stem != token:
-                indice[stem].add(i)
-            for sin in _SINONIMOS_MAP.get(token, set()):
-                indice[f"__sin__{sin}"].add(i)
-    _indice = dict(indice)
-    _nombres_norm_cache = nombres_norm
+            if stem != token: indice[stem].add(i)
+            for s in sin_map.get(token, set()):
+                indice[f"__sin__{s}"].add(i)
+
+    with _data_lock:
+        _indice = dict(indice)
+        _nombres_norm_cache = nombres_norm
+
+    print(f"  Índice construido: {len(_indice)} tokens, {len(productos)} productos")
     return nombres_norm
 
 def get_nombres_norm_con_indice():
@@ -152,7 +307,7 @@ def busqueda_por_indice(tokens_query):
         stem = stemming_basico(token)
         candidatos = set()
         if token in _indice: candidatos |= _indice[token]
-        if stem in _indice:  candidatos |= _indice[stem]
+        if stem in _indice: candidatos |= _indice[stem]
         if len(token) >= 3:
             for key in _indice:
                 if key.startswith(token) and not key.startswith("__sin__"):
@@ -166,221 +321,88 @@ def busqueda_por_indice(tokens_query):
         resultado = resultado & s
     return resultado
 
-# Marcas conocidas — si aparecen en el query actúan como filtro duro
-# (el producto DEBE contener la marca para aparecer en resultados)
-_MARCAS = {
-    '3m','ivoclar','dentsply','angelus','gc','kavo','sirona','voco',
-    'kerr','ultradent','ormco','american orthodontics','ormco',
-    'medibase','rekosept','septodont','molteni','zhermack','bego',
-    'woodpecker','satelec','acteon','bien air','nsk','w&h','morita',
-    'hu-friedy','hufriedy','hu friedy','american eagle',
-    'danaher','solventum','espe',
-}
-
-def busqueda_exacta(q_norm, productos, nombres_norm):
-    tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
-    if not tokens: return []
-
-    # Detectar marcas en el query — actúan como filtro duro
-    marcas_en_query = [t for t in tokens if t in _MARCAS]
-
-    candidatos_idx = busqueda_por_indice(tokens)
-    if candidatos_idx is not None:
-        resultados = [productos[i] for i in sorted(candidatos_idx)]
-    else:
-        patrones = [re.compile(r"(?<![a-z0-9])" + re.escape(t) + r"(?![a-z0-9])") for t in tokens]
-        resultados = []
-        for i, nombre in enumerate(nombres_norm):
-            nombre_junto = nombre.replace(" ", "")
-            if all(p.search(nombre) or tokens[j] in nombre_junto for j, p in enumerate(patrones)):
-                resultados.append(productos[i])
-
-    # Filtro duro de marca
-    if marcas_en_query:
-        def tiene_marca(p):
-            n = normalizar(p["nombre"])
-            return any(m in n or m in n.replace(" ","") for m in marcas_en_query)
-        con_marca = [p for p in resultados if tiene_marca(p)]
-        if con_marca:
-            resultados = con_marca
-
-    # Filtro duro de modelo: si el query tiene modelo (z350, p60, etc.)
-    # descartar productos con modelo DIFERENTE
-    q_attrs_local = _extraer_atributos(" ".join(tokens))
-    modelo_q = q_attrs_local.get("modelo")
-    if modelo_q and len(modelo_q) >= 3:
-        raiz_q = re.sub(r'^[a-z]+', '', modelo_q)
-        prefijo_q = re.sub(r'[a-z]+$', '', modelo_q)
-
-        def modelo_ok(p):
-            pa = _extraer_atributos(p["nombre"])
-            mp = pa.get("modelo")
-            if mp is None:
-                pn = normalizar(p["nombre"])
-                return modelo_q in pn or raiz_q in pn
-            raiz_p = re.sub(r'^[a-z]+', '', mp)
-            prefijo_p = re.sub(r'[a-z]+$', '', mp)
-            return (mp == modelo_q or
-                    mp.startswith(prefijo_q) or
-                    modelo_q.startswith(prefijo_p))
-
-        con_modelo = [p for p in resultados if modelo_ok(p)]
-        if con_modelo:
-            resultados = con_modelo
-
-    return resultados
-
-# ─── MOTOR DE RELEVANCIA ──────────────────────────────────────────────────────
-#
-# Reemplaza score_fuzzy por un motor basado en clasificación de tokens.
-# Tokens específicos (marcas, modelos, tonos, drogas) dominan el ranking.
-# Tokens genéricos (composite, anestesia) aportan poco.
-# rapidfuzz solo se usa para corrección de typos.
-#
-
+# Motor de relevancia
 import re as _re
 
-def _token_presente_en(tok: str, nombre_norm: str, nombre_junto: str) -> bool:
+_STOP_LOCAL = {"de","el","la","los","las","en","con","por","para","y","o","e","un","una","x","a",
+               "composite","resina","adhesivo","cemento","guante","guantes","lima","fresa",
+               "bracket","disco","anestesia","cemento","yeso","cono","conos","aguja","agujas"}
+
+def _token_presente_en(tok, nombre_norm, nombre_junto):
     tok_clean = _re.sub(r'^[^a-z0-9]+', '', tok)
-    if not tok_clean:
-        return False
-    # Tokens cortos (≤3 chars: a3, m, fg) → buscar palabra completa
+    if not tok_clean: return False
     if len(tok_clean) <= 3:
         return bool(_re.search(r'\b' + _re.escape(tok_clean) + r'\b', nombre_norm))
-    # Exacto o dentro del nombre junto
-    if tok_clean in nombre_norm or tok_clean in nombre_junto:
-        return True
-    # Prefijo inteligente: SOLO para tokens alfanuméricos (modelos como z350, p60)
-    # Evita que z350xt matchee "xt" o "filtek" (tokens sin números)
-    for nt in nombre_norm.split():
-        if len(nt) < 2: continue
-        if not _re.search(r'[0-9]', nt): continue  # solo tokens con números
-        if tok_clean.startswith(nt): return True    # z350xt startswith z350
-        if nt.startswith(tok_clean): return True    # z350 startswith p60 → False
-    return False
+    return (tok_clean in nombre_norm or tok_clean in nombre_junto or
+            any(nt.startswith(tok_clean) or tok_clean.startswith(_re.sub(r'[a-z]+$','',nt))
+                for nt in nombre_norm.split() if len(nt) >= 2))
 
-def score_relevancia(q_tokens: dict, q_attrs: dict,
-                     nombre_norm: str, prod_attrs: dict) -> int:
-    """
-    Score de relevancia basado en tokens clasificados.
-    +120 por token específico presente
-    -80  por token específico ausente
-    -200 si NINGÚN token específico presente (irrelevante)
-    Penalización proporcional si cobertura parcial de específicos
-    -150 por conflicto de atributo crítico
-    -200 por conflicto de modelo
-    """
+def score_relevancia(q_tokens, q_attrs, nombre_norm, prod_attrs):
     score = 0
-    nombre_junto = nombre_norm.replace(" ", "")
-
-    # Penalizar productos "simil/similar/imitacion" si el query no lo pide
-    # "Composite simil P60" no es P60 — debe quedar muy abajo
-    q_all_str = " ".join(q_tokens["todos"])
-    if _re.search(r'\b(simil|similar|imitacion|generico)\b', nombre_norm):
-        if not _re.search(r'\b(simil|similar|imitacion|generico)\b', q_all_str):
-            score -= 200
+    nombre_junto = nombre_norm.replace(" ","")
     n_esp = len(q_tokens["especificos"])
-    presentes = []
-    ausentes = []
+    presentes, ausentes = [], []
 
     for tok in q_tokens["especificos"]:
         if _token_presente_en(tok, nombre_norm, nombre_junto):
-            presentes.append(tok)
-            score += 120
+            presentes.append(tok); score += 120
         else:
-            ausentes.append(tok)
-            score -= 80
+            ausentes.append(tok); score -= 80
 
-    # Regla clave: si el query tiene específicos y NINGUNO está → irrelevante
-    if n_esp > 0 and not presentes:
-        return -200
+    if n_esp > 0 and not presentes: return -200
 
-    # Penalización proporcional por cobertura incompleta
     if n_esp >= 2 and ausentes:
-        frac_ausente = len(ausentes) / n_esp
-        # Modelo ausente penaliza más que tono ausente
+        frac = len(ausentes) / n_esp
         modelo_ausente = any(_re.search(r'[a-z]+[0-9]{2,}', t) for t in ausentes)
-        base_pen = 180 if modelo_ausente else 120
-        score -= int(frac_ausente * base_pen)
+        score -= int(frac * (180 if modelo_ausente else 120))
 
-    # Tokens genéricos: bonus menor
     for tok in q_tokens["genericos"]:
-        if tok in nombre_norm or tok in nombre_junto:
-            score += 20
+        if tok in nombre_norm or tok in nombre_junto: score += 20
 
-    # Frase completa: bonus si el query aparece textualmente
     q_all = " ".join(q_tokens["todos"])
-    if fuzz.partial_ratio(q_all, nombre_norm) >= 88:
-        score += 80
+    if fuzz.partial_ratio(q_all, nombre_norm) >= 88: score += 80
 
-    # Conflictos de atributos críticos
-    for attr in ["tono", "material", "calibre", "droga", "talle"]:
-        qv = q_attrs.get(attr)
-        pv = prod_attrs.get(attr)
+    for attr in ["tono","material","calibre","droga","talle"]:
+        qv, pv = q_attrs.get(attr), prod_attrs.get(attr)
         if qv and pv:
-            qs = str(qv).lower().replace("-", "")
-            ps = str(pv).lower().replace("-", "")
+            qs, ps = str(qv).lower().replace("-",""), str(pv).lower().replace("-","")
             if qs != ps and not qs.startswith(ps) and not ps.startswith(qs):
                 score -= 150
 
-    # Conflicto de modelo
-    qm = q_attrs.get("modelo")
-    pm = prod_attrs.get("modelo")
+    qm, pm = q_attrs.get("modelo"), prod_attrs.get("modelo")
     if qm and pm:
-        pq = _re.sub(r'[a-z]+$', '', qm)
-        pp = _re.sub(r'[a-z]+$', '', pm)
-        if not (pm == qm or pm.startswith(pq) or qm.startswith(pp)):
+        pq = _re.sub(r'[a-z]+$','',qm); pp = _re.sub(r'[a-z]+$','',pm)
+        if not (pm==qm or pm.startswith(pq) or qm.startswith(pp)):
             score -= 200
 
-    return score
+    return max(-200, min(300, score))
 
-def score_fuzzy_typo(q_norm: str, nombre_norm: str) -> int:
-    """rapidfuzz solo para corrección de typos — no como ranking principal."""
-    return max(
-        int(fuzz.token_set_ratio(q_norm, nombre_norm)),
-        int(fuzz.partial_ratio(q_norm, nombre_norm)),
-    )
+def score_fuzzy_typo(q_norm, nombre_norm):
+    return max(int(fuzz.token_set_ratio(q_norm, nombre_norm)),
+               int(fuzz.partial_ratio(q_norm, nombre_norm)))
 
 def busqueda_fuzzy(q_norm, productos, nombres_norm, excluir_ids=None):
-    """
-    Búsqueda fuzzy para typos — se activa cuando la búsqueda exacta da pocos resultados.
-    Usa score_relevancia si hay tokens clasificados, fallback a rapidfuzz si no.
-    """
     excluir = excluir_ids or set()
     q_tokens = clasificar_tokens(q_norm)
     q_attrs = catalogar(q_norm)
-    tiene_especificos = bool(q_tokens["especificos"])
-
+    tiene_esp = bool(q_tokens["especificos"])
     resultados = []
     for i, nombre in enumerate(nombres_norm):
         p = productos[i]
         if p["id"] in excluir: continue
-
-        nombre_junto = nombre.replace(" ", "")
-
-        if tiene_especificos:
-            # Motor de relevancia
+        if tiene_esp:
             p_attrs = catalogar(p["nombre"])
             s = score_relevancia(q_tokens, q_attrs, nombre, p_attrs)
-            if s >= -50:  # umbral generoso para fuzzy
-                resultados.append((s, p))
+            if s >= -50: resultados.append((s, p))
         else:
-            # Solo genéricos → usar rapidfuzz con umbral alto
             s = score_fuzzy_typo(q_norm, nombre)
-            if s >= MIN_FUZZY:
-                resultados.append((s, p))
-
+            if s >= MIN_FUZZY: resultados.append((s, p))
     resultados.sort(key=lambda x: -x[0])
     return [p for _, p in resultados]
 
-def sort_por_relevancia_precio(productos_con_score):
-    """Ordena por score desc, luego precio asc dentro del mismo score."""
-    return [p for _, p in sorted(productos_con_score, key=lambda x: (-x[0], x[1]["precio"]))]
-
 def sort_por_precio(productos):
     con = sorted([p for p in productos if p["precio"] > 0], key=lambda p: p["precio"])
-    sin = [p for p in productos if p["precio"] == 0]
-    return con + sin
+    return con + [p for p in productos if p["precio"] == 0]
 
 
 # ─── Historial ────────────────────────────────────────────────────────────────
@@ -389,10 +411,8 @@ HIST_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "historial.
 def cargar_historial():
     if os.path.exists(HIST_PATH):
         try:
-            with open(HIST_PATH, encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return {}
+            with open(HIST_PATH, encoding="utf-8") as f: return json.load(f)
+        except: return {}
     return {}
 
 def guardar_historial(productos_nuevos):
@@ -400,28 +420,22 @@ def guardar_historial(productos_nuevos):
     with _file_lock:
         hist = cargar_historial()
         hoy = datetime.now().strftime("%Y-%m-%d")
-        cambiaron = 0
         for p in productos_nuevos:
-            pid = p["id"]
-            precio = p["precio"]
-            if pid not in hist:
-                hist[pid] = []
+            pid, precio = p["id"], p["precio"]
+            if pid not in hist: hist[pid] = []
             if not hist[pid] or hist[pid][-1]["precio"] != precio:
                 hist[pid].append({"fecha": hoy, "precio": precio})
-                if len(hist[pid]) > 90:
-                    hist[pid] = hist[pid][-90:]
-                cambiaron += 1
+                if len(hist[pid]) > 90: hist[pid] = hist[pid][-90:]
         with open(HIST_PATH, "w", encoding="utf-8") as f:
             json.dump(hist, f, ensure_ascii=False)
-        print(f"Historial actualizado: {cambiaron} productos con cambios de precio.")
         return hist
 
-_cache["historial"] = None
+_estado["historial"] = None
 
 def get_historial():
-    if _cache["historial"] is None:
-        _cache["historial"] = cargar_historial()
-    return _cache["historial"]
+    if _estado["historial"] is None:
+        _estado["historial"] = cargar_historial()
+    return _estado["historial"]
 
 
 # ─── Reportes ─────────────────────────────────────────────────────────────────
@@ -433,17 +447,12 @@ def guardar_reporte(producto_id, nombre, tienda, precio_actual, comentario, ip):
         reportes = []
         if os.path.exists(REPORTES_PATH):
             try:
-                with open(REPORTES_PATH, encoding="utf-8") as f:
-                    reportes = json.load(f)
-            except Exception:
-                reportes = []
+                with open(REPORTES_PATH, encoding="utf-8") as f: reportes = json.load(f)
+            except: reportes = []
         reportes.append({
             "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            "producto_id": producto_id,
-            "nombre": nombre,
-            "tienda": tienda,
-            "precio_actual": precio_actual,
-            "comentario": comentario[:200],
+            "producto_id": producto_id, "nombre": nombre, "tienda": tienda,
+            "precio_actual": precio_actual, "comentario": comentario[:200],
             "ip": ip[:20] if ip else ""
         })
         reportes = reportes[-500:]
@@ -451,7 +460,7 @@ def guardar_reporte(producto_id, nombre, tienda, precio_actual, comentario, ip):
             json.dump(reportes, f, ensure_ascii=False, indent=2)
 
 
-# ─── Rutas ────────────────────────────────────────────────────────────────────
+# ─── RUTAS ────────────────────────────────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template("index.html", tiendas=TIENDAS)
@@ -460,823 +469,328 @@ def index():
 def buscar():
     q = request.args.get("q", "").strip()
     if len(q) < 2:
-        return jsonify({"resultados": [], "total": 0, "offset": 0, "limit": 30,
-                        "sugerencia": None, "aviso": None})
+        return jsonify({"resultados":[],"total":0,"offset":0,"limit":30,"aviso":None,"sugerencia":None})
     if len(q) > 100:
         return jsonify({"error": "Query demasiado larga"}), 400
-
-    try:
-        offset = max(0, int(request.args.get("offset", 0)))
-    except (ValueError, TypeError):
-        offset = 0
+    try: offset = max(0, int(request.args.get("offset", 0)))
+    except: offset = 0
     limit = 30
 
     q_norm = normalizar(q)
     productos = get_productos()
     nombres_norm = get_nombres_norm()
 
-    # Clasificar tokens del query
     q_tokens = clasificar_tokens(q_norm)
     q_attrs = catalogar(q_norm)
     tiene_especificos = bool(q_tokens["especificos"])
 
-    # ── Candidatos por índice invertido ──
+    # Candidatos por índice
     tokens_idx = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
     candidatos_idx = busqueda_por_indice(tokens_idx)
+    candidatos = list(candidatos_idx) if candidatos_idx is not None else list(range(len(productos)))
 
-    if candidatos_idx is not None:
-        candidatos = list(candidatos_idx)
-    else:
-        candidatos = list(range(len(productos)))
-
-    # Filtro de marca: preferir productos con la marca, pero NO excluir
-    # si el producto tiene el modelo correcto (ej: "P60 POSTERIORES" sin "3m")
+    # Filtro duro de marca
     marcas_q = [t for t in tokens_idx if t in _MARCAS]
-    modelo_q_para_marca = q_attrs.get("modelo")
     if marcas_q:
-        def _tiene_marca(i):
-            n = nombres_norm[i]
-            return any(m in n or m in n.replace(" ","") for m in marcas_q)
-        def _tiene_modelo(i):
-            if not modelo_q_para_marca: return False
-            n = nombres_norm[i]
-            return modelo_q_para_marca in n or modelo_q_para_marca in n.replace(" ","")
-        # Incluir: tiene marca, O tiene el modelo (aunque no tenga la marca)
-        candidatos_marca_o_modelo = [i for i in candidatos
-                                      if _tiene_marca(i) or _tiene_modelo(i)]
-        if candidatos_marca_o_modelo:
-            candidatos = candidatos_marca_o_modelo
+        con_marca = [i for i in candidatos if any(m in nombres_norm[i] or m in nombres_norm[i].replace(" ","") for m in marcas_q)]
+        if con_marca: candidatos = con_marca
 
     # Filtro duro de modelo
-    modelo_q_local = q_attrs.get("modelo")
-    if modelo_q_local and len(modelo_q_local) >= 3:
-        import re as _re2
-        raiz_q_l = _re2.sub(r'^[a-z]+', '', modelo_q_local)
-        prefijo_q_l = _re2.sub(r'[a-z]+$', '', modelo_q_local)
-        def _modelo_ok_local(i):
+    modelo_q = q_attrs.get("modelo")
+    if modelo_q and len(modelo_q) >= 3:
+        pq = _re.sub(r'[a-z]+$','', modelo_q)
+        def _modelo_ok(i):
             pa = catalogar(productos[i]["nombre"])
-            mp = pa.get("modelo")
-            pn = nombres_norm[i]
-            if mp is None:
-                return modelo_q_local in pn or raiz_q_l in pn
-            prefijo_p_l = _re2.sub(r'[a-z]+$', '', mp)
-            return (mp == modelo_q_local or
-                    mp.startswith(prefijo_q_l) or
-                    modelo_q_local.startswith(prefijo_p_l))
-        candidatos_modelo = [i for i in candidatos if _modelo_ok_local(i)]
-        if candidatos_modelo:
-            candidatos = candidatos_modelo
+            mp = pa.get("modelo"); pn = nombres_norm[i]
+            if mp is None: return modelo_q in pn or _re.sub(r'^[a-z]+','',modelo_q) in pn
+            pp2 = _re.sub(r'[a-z]+$','',mp)
+            return mp==modelo_q or mp.startswith(pq) or modelo_q.startswith(pp2)
+        cm = [i for i in candidatos if _modelo_ok(i)]
+        if cm: candidatos = cm
 
-    # ── Scoring de relevancia ──
+    # Scoring
     if tiene_especificos:
         scored = []
         for i in candidatos:
-            p = productos[i]
-            p_norm = nombres_norm[i]
-            p_attrs = catalogar(p["nombre"])
-            s = score_relevancia(q_tokens, q_attrs, p_norm, p_attrs)
-            scored.append((s, p))
-        # Ordenar por score desc, luego precio asc
+            p_attrs = catalogar(productos[i]["nombre"])
+            s = score_relevancia(q_tokens, q_attrs, nombres_norm[i], p_attrs)
+            scored.append((s, productos[i]))
         scored.sort(key=lambda x: (-x[0], x[1]["precio"]))
-        # Umbral: mostrar solo los relevantes (score > -100)
-        todos = [p for s, p in scored if s > -100]
-        # Si muy pocos, ampliar umbral
-        if len(todos) < 5:
-            todos = [p for s, p in scored if s > -200]
+        todos = [p for s,p in scored if s > -100]
+        if len(todos) < 5: todos = [p for s,p in scored if s > -200]
     else:
-        # Query genérico → sort por precio
         todos = sort_por_precio([productos[i] for i in candidatos])
 
-    # Typo fallback: si no hay nada, buscar fuzzy amplio
-    if not todos:
-        todos = busqueda_fuzzy(q_norm, productos, nombres_norm)
+    if not todos: todos = busqueda_fuzzy(q_norm, productos, nombres_norm)
 
     total = len(todos)
-
-    # Avisos
     aviso = None
     if not tiene_especificos and total > 200:
         aviso = "Agregá marca, modelo o medida para resultados más precisos"
-
     sugerencia = None
     if not todos:
-        # Buscar sugerencia fuzzy
-        sugerencia_prods = busqueda_fuzzy(q_norm, productos, nombres_norm)
-        if sugerencia_prods:
-            sugerencia = f"¿Buscabas: {sugerencia_prods[0]['nombre'][:50]}?"
+        fb = busqueda_fuzzy(q_norm, productos, nombres_norm)
+        if fb: sugerencia = f"¿Buscabas: {fb[0]['nombre'][:50]}?"
 
-    return jsonify({
-        "resultados": todos[offset:offset+limit],
-        "total": total,
-        "offset": offset,
-        "limit": limit,
-        "aviso": aviso,
-        "sugerencia": sugerencia,
-    })
+    return jsonify({"resultados": todos[offset:offset+limit], "total": total,
+                    "offset": offset, "limit": limit, "aviso": aviso, "sugerencia": sugerencia})
 
 @app.route("/api/autocomplete")
 def autocomplete():
-    """Sugerencias rápidas mientras el usuario escribe (máx 6 resultados)."""
-    q = request.args.get("q", "").strip()
-    if len(q) < 2:
-        return jsonify([])
+    q = request.args.get("q","").strip()
+    if len(q) < 2: return jsonify([])
     q_norm = normalizar(q)
     tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
-    if not tokens:
-        return jsonify([])
-
+    if not tokens: return jsonify([])
     productos = get_productos()
     nombres_norm = get_nombres_norm()
-
-    # Buscar por prefijo en el índice (rápido)
     candidatos_idx = busqueda_por_indice(tokens)
-    if candidatos_idx is None:
-        return jsonify([])
-
-    # Armar sugerencias únicas por nombre normalizado
-    vistos = set()
-    sugerencias = []
+    if candidatos_idx is None: return jsonify([])
+    vistos, sugerencias = set(), []
     for i in sorted(candidatos_idx):
         p = productos[i]
-        nombre = p["nombre"]
-        norm_key = nombre.lower()[:40]
-        if norm_key in vistos:
-            continue
-        vistos.add(norm_key)
-        sugerencias.append({
-            "nombre": nombre,
-            "tienda": p["tienda_nombre"],
-            "precio_fmt": p["precio_fmt"],
-        })
-        if len(sugerencias) >= 6:
-            break
-
+        k = p["nombre"].lower()[:40]
+        if k in vistos: continue
+        vistos.add(k)
+        sugerencias.append({"nombre":p["nombre"],"tienda":p["tienda_nombre"],"precio_fmt":p["precio_fmt"]})
+        if len(sugerencias) >= 6: break
     return jsonify(sugerencias)
 
 @app.route("/api/estado")
 def estado():
-    """Estado general del sistema — para el header de confianza."""
     from datetime import datetime
-    productos = get_productos()
-    por_tienda = {}
-    for p in productos:
-        t = p["tienda_nombre"]
-        por_tienda[t] = por_tienda.get(t, 0) + 1
-
-    # Leer reporte de scraping si existe
-    reporte_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reporte_scraping.json")
-    tiendas_ok = len([t for t in TIENDAS])
-    tiendas_error = 0
-    ultima_actualizacion = None
     ultima_fmt = "No disponible"
-
-    if os.path.exists(reporte_path):
-        try:
-            with open(reporte_path, encoding="utf-8") as f:
-                rep = json.load(f)
-            ultima_actualizacion = rep.get("fecha", "")
-            tiendas_ok = sum(1 for t in rep.get("tiendas", []) if t.get("estado") in ("ok", "bajo"))
-            tiendas_error = sum(1 for t in rep.get("tiendas", []) if t.get("estado") in ("error_fatal", "sin_productos"))
-            # Formatear fecha
-            if ultima_actualizacion:
-                try:
-                    dt = datetime.strptime(ultima_actualizacion, "%Y-%m-%d %H:%M:%S")
-                    hoy = datetime.now().date()
-                    if dt.date() == hoy:
-                        ultima_fmt = f"hoy {dt.strftime('%H:%M')}"
-                    else:
-                        ultima_fmt = dt.strftime("%d/%m %H:%M")
-                except Exception:
-                    ultima_fmt = ultima_actualizacion[:16]
-        except Exception:
-            pass
-    elif os.path.exists(HIST_PATH):
-        # Fallback: usar fecha de modificación del historial
-        try:
-            mod = os.path.getmtime(HIST_PATH)
-            dt = datetime.fromtimestamp(mod)
-            hoy = datetime.now().date()
-            if dt.date() == hoy:
-                ultima_fmt = f"hoy {dt.strftime('%H:%M')}"
-            else:
-                ultima_fmt = dt.strftime("%d/%m %H:%M")
-        except Exception:
-            pass
-
-    tiendas_totales = len(TIENDAS)
+    if _estado["ultima_carga"]:
+        hoy = datetime.now().date()
+        dt = _estado["ultima_carga"]
+        ultima_fmt = f"hoy {dt.strftime('%H:%M')}" if dt.date() == hoy else dt.strftime("%d/%m %H:%M")
 
     return jsonify({
-        "total_productos": len(productos),
-        "tiendas_totales": tiendas_totales,
-        "tiendas_ok": tiendas_ok,
-        "tiendas_error": tiendas_error,
-        "ultima_actualizacion": ultima_actualizacion,
+        "total_productos": _estado["total"],
+        "tiendas_totales": len(TIENDAS),
+        "tiendas_ok": len(TIENDAS),
+        "tiendas_error": 0,
+        "ultima_actualizacion": _estado["ultima_carga"].isoformat() if _estado["ultima_carga"] else None,
         "ultima_fmt": ultima_fmt,
-        "texto_header": f"{len(productos):,} productos · {tiendas_ok}/{tiendas_totales} tiendas · actualizado {ultima_fmt}".replace(",", "."),
+        "origen_datos": _estado["origen"],
+        "hash_actual": _estado["hash_actual"],
+        "fecha_run_scraper": _estado.get("fecha_run"),
+        "error_ultimo": _estado["error_ultimo"],
+        "texto_header": f"{_estado['total']:,} productos · {len(TIENDAS)} tiendas · actualizado {ultima_fmt}".replace(",","."),
     })
 
 @app.route("/api/historial/<producto_id>")
 def historial_producto(producto_id):
     hist = get_historial()
     entradas = hist.get(producto_id, [])
-    # Calcular variación vs hace 30 días
-    variacion = None
-    precio_30d = None
+    variacion = None; precio_30d = None
     if len(entradas) >= 2:
-        actual = entradas[-1]["precio"]
-        # Buscar entrada más cercana a 30 días atrás
         from datetime import datetime, timedelta
+        actual = entradas[-1]["precio"]
         hace_30 = datetime.now() - timedelta(days=30)
         for e in reversed(entradas[:-1]):
             try:
-                fecha_e = datetime.strptime(e["fecha"], "%Y-%m-%d")
-                if fecha_e <= hace_30 + timedelta(days=5):
+                if datetime.strptime(e["fecha"],"%Y-%m-%d") <= hace_30 + timedelta(days=5):
                     precio_30d = e["precio"]
-                    if precio_30d > 0:
-                        variacion = round(((actual - precio_30d) / precio_30d) * 100, 1)
+                    if precio_30d > 0: variacion = round(((actual-precio_30d)/precio_30d)*100,1)
                     break
-            except Exception:
-                pass
-    return jsonify({
-        "entradas": entradas,
-        "precio_30d": precio_30d,
-        "variacion_pct": variacion,
-    })
-
-
-# ─── PARSER UNIVERSAL DE ATRIBUTOS ───────────────────────────────────────────
-#
-# Extrae atributos estructurados de cualquier texto de producto odontológico.
-# Sin reglas por producto — trabaja por patrones léxicos universales.
-#
-
-# Drogas anestésicas — vocabulario técnico fijo del dominio
-_DROGAS = {
-    'mepivacaina','lidocaina','articaina','bupivacaina','prilocaina',
-    'scandicaine','alphacaine','mepinor','anescart','ultracaine','septocaine',
-    'xylestesin','novocaina','carticaina','mepivastesin',
-}
-
-# Materiales de guantes/barreras (par opuesto: penaliza si difieren)
-_MATERIALES = [
-    'nitrilo','latex','vinilo','neopreno','silicona','acrilico',
-    'carbide','diamante','acero','metal','fibra','papel','algodon',
-    'ceramica','circonio','titanio','cobalto',
-]
-
-# Colores
-_COLORES = [
-    'negro','blanco','azul','rojo','verde','amarillo',
-    'naranja','transparente','natural','rosado','violeta',
-]
-
-# Pesos de cada atributo: cuánto suma un match y cuánto penaliza un conflicto
-_PESOS = {
-    'tono':       {'match': 30, 'conflict': -65},  # A3≠A2 = crítico
-    'modelo':     {'match': 25, 'conflict': -65},  # Z350≠Z250 — penalización fuerte
-    'talle':      {'match': 20, 'conflict': -55},  # M≠L
-    'material':   {'match': 15, 'conflict': -55},  # nitrilo≠latex
-    'calibre':    {'match': 25, 'conflict': -60},  # #25≠#35
-    'droga':      {'match': 20, 'conflict': -60},  # mepivacaina≠articaina
-    'porcentaje': {'match': 10, 'conflict': -35},
-    'dilucion':   {'match': 10, 'conflict': -30},
-    'color':      {'match':  5, 'conflict': -20},
-    'cantidad':   {'match':  3, 'conflict':  -8},
-    'medidas':    {'match': 12, 'conflict': -30},
-}
-
-_STOP_ATTRS = {
-    'de','el','la','los','las','en','con','por','para','y','o','un','una',
-    'x','talle','talla','tipo','nro','num','iso','mas','plus','pro',
-    'kit','pack','set','caja','frasco','jeringa','compula','unidad',
-    'unidades','caja','bolsa','rollo','tubo','sobre',
-}
-
-def _extraer_atributos(texto):
-    """
-    Parser universal de atributos odontológicos.
-    Sin hardcodeo por producto — trabaja por patrones léxicos.
-    """
-    t = normalizar(texto)
-    t_orig = texto
-    attrs = {}
-
-    # ── TONO dental: A1, A2, A3, B1, C2, D3, A3.5, etc. ──
-    tonos = re.findall(r'\b([a-d][0-9](?:[.,][0-9])?)\b', t)
-    if tonos: attrs['tono'] = tonos[0]
-
-    # ── MODELO alfanumérico: Z350, Z250, P60, Z100, XT, etc. ──
-    modelos = re.findall(r'\b([a-z]{1,5}\d{2,4}(?:[a-z]{0,4})?)\b', t)
-    modelos = [m for m in modelos
-               if not re.match(r'^(iso|nro|num|the|and|con|pro|mas|x\d+)$', m)
-               and len(m) >= 3]
-    if modelos: attrs['modelo'] = modelos[0]
-
-    # ── MEDIDAS con unidad: 25mm, 4g, 8ml, 1kg, etc. ──
-    medidas = re.findall(r'\b(\d+(?:[.,]\d+)?\s*(?:mm|ml|g|kg|cm|l|cc|ul))\b', t)
-    if medidas:
-        attrs['medidas'] = sorted(set(m.replace(' ', '') for m in medidas))
-
-    # ── PORCENTAJE: 3%, 5.25%, 0.12% ──
-    porcs = re.findall(r'\b(\d+(?:[.,]\d+)?)\s*%', t)
-    if porcs: attrs['porcentaje'] = porcs[0]
-
-    # ── TALLE: M, L, XL, S, XS ──
-    talle = re.search(r'\b(?:talle\s*|talla\s*|size\s*)?([xX]{0,2}[sSlLmM])\b(?!\w)', t)
-    if talle: attrs['talle'] = talle.group(1).upper()
-
-    # ── CANTIDAD: x50, x100, x5, 50 unidades ──
-    cant = re.search(r'\bx\s*(\d+)\b', t)
-    if not cant:
-        cant = re.search(r'\b(\d+)\s*(?:unidades|unid|u\b|caps?|carpules?)', t)
-    if cant: attrs['cantidad'] = int(cant.group(1))
-
-    # ── CALIBRE de instrumento: #25, ISO 25, nro 15 ──
-    calib = re.search(r'#\s*(\d{1,3})\b', t_orig)
-    if not calib: calib = re.search(r'\biso\s*(\d{1,3})\b', t)
-    if not calib: calib = re.search(r'\bnro?\.?\s*(\d{1,3})\b', t)
-    if calib: attrs['calibre'] = calib.group(1)
-
-    # ── DILUCIÓN: 1:100000, 1:80000 ──
-    dil = re.search(r'1\s*:\s*(\d+)', t_orig)
-    if dil: attrs['dilucion'] = f"1:{dil.group(1)}"
-
-    # ── DROGA anestésica ──
-    for droga in _DROGAS:
-        if re.search(r'\b' + droga[:6] + r'\w*\b', t):
-            attrs['droga'] = droga
-            break
-
-    # ── MATERIAL ──
-    for mat in _MATERIALES:
-        if re.search(r'\b' + mat[:5] + r'\w*\b', t):
-            attrs['material'] = mat
-            break
-
-    # ── COLOR ──
-    for col in _COLORES:
-        if re.search(r'\b' + col[:4] + r'\w*\b', t):
-            attrs['color'] = col
-            break
-
-    # ── TOKENS SEMÁNTICOS (lo que queda) ──
-    attrs['tokens'] = [
-        tok for tok in t.split()
-        if len(tok) > 1
-        and tok not in _STOP_ATTRS
-        and not re.match(r'^\d+(?:mm|ml|g|kg|%|cm)?$', tok)
-        and not re.match(r'^\d+$', tok)
-    ]
-
-    return attrs
-
-
-def _score_atributos(q_attrs, p_attrs, q_norm, p_norm):
-    """
-    Score final = fuzzy_base + cobertura_tokens + bonus_atributos - penalizacion_conflictos.
-    Devuelve (score_0_100, base, detalles_list).
-
-    El score base combina:
-    1. token_set_ratio / partial_ratio (similitud general)
-    2. Penalización por tokens importantes del query que NO están en el producto
-       Esto evita que "COMPOSITE ULTRA FILL A3" matchee "Composite 3M P60 A3"
-       solo porque comparten "composite" y "a3".
-    """
-    base_fuzzy = max(
-        int(fuzz.token_set_ratio(q_norm, p_norm)),
-        int(fuzz.partial_ratio(q_norm, p_norm)),
-    )
-
-    # Tokens importantes del query (excluye stopwords y tokens cortos/genéricos)
-    STOPWORDS_LOCAL = {"de","el","la","los","las","en","con","por","para","y","o",
-                       "e","un","una","x","a","composite","resina","adhesivo","cemento",
-                       "guante","lima","fresa","bracket","disco","anestesia"}
-    q_tokens_imp = [t for t in q_norm.split()
-                    if len(t) >= 3 and t not in STOPWORDS_LOCAL
-                    and not re.match(r'^\d+$', t)]
-
-    # Calcular cobertura: ¿cuántos tokens importantes del query están en el producto?
-    p_junto = p_norm.replace(" ", "")
-    tokens_presentes = sum(1 for t in q_tokens_imp if t in p_norm or t in p_junto)
-    tokens_ausentes = len(q_tokens_imp) - tokens_presentes
-
-    # Penalizar por tokens importantes ausentes (cada uno resta ~8 puntos del base)
-    penalizacion_cobertura = tokens_ausentes * 8 if q_tokens_imp else 0
-    base = max(0, base_fuzzy - penalizacion_cobertura)
-
-    bonus = 0
-    penalizacion = 0
-    detalles = []
-
-    for attr, pesos in _PESOS.items():
-        q_val = q_attrs.get(attr)
-        p_val = p_attrs.get(attr)
-        if q_val is None or p_val is None:
-            continue
-
-        if attr == 'medidas':
-            q_set = set(q_val) if isinstance(q_val, list) else {q_val}
-            p_set = set(p_val) if isinstance(p_val, list) else {p_val}
-            if q_set & p_set:
-                bonus += pesos['match']
-                detalles.append(f"+{attr}:{list(q_set)[0]}")
-            elif q_set and p_set:
-                penalizacion += abs(pesos['conflict'])
-                detalles.append(f"✗{attr}:{list(q_set)[0]}≠{list(p_set)[0]}")
-        else:
-            if str(q_val).lower().strip() == str(p_val).lower().strip():
-                bonus += pesos['match']
-                detalles.append(f"+{attr}:{q_val}")
-            else:
-                penalizacion += abs(pesos['conflict'])
-                detalles.append(f"✗{attr}:{q_val}≠{p_val}")
-
-    score = max(0, min(100, base + bonus - penalizacion))
-    return score, base, detalles
-
-@app.route("/api/compra-inteligente", methods=["POST"])
-def compra_inteligente():
-    """
-    Recibe lista de líneas y resuelve la mejor compra.
-    Para cada línea busca el mejor match y arma 3 estrategias de compra.
-    """
-    data = request.get_json(silent=True) or {}
-    lineas_raw = str(data.get("lista", "")).strip().split("\n")
-    lineas = [l.strip() for l in lineas_raw if l.strip() and len(l.strip()) > 1][:30]
-
-    if not lineas:
-        return jsonify({"error": "Lista vacía"}), 400
-
-    productos = get_productos()
-    nombres_norm = get_nombres_norm()
-
-    def buscar_linea(linea):
-        """
-        Motor universal de matching para Compra Inteligente.
-
-        Diferencia clave vs búsqueda normal:
-        - La búsqueda normal requiere TODOS los tokens presentes (alta precisión)
-        - Compra Inteligente usa búsqueda por CUALQUIER token importante + scoring
-          con penalización para filtrar. Así encuentra "Filtek P60 A3" aunque el
-          producto se llame "Composite Filtek 3M P60 A3 x 4gr" (tokens extra no importan).
-        """
-        q_norm = normalizar(linea)
-        tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t) > 1]
-        if not tokens:
-            return {"linea": linea, "matches": [], "generica": True,
-                    "aviso": "Línea muy genérica — agregá nombre de producto"}
-
-        es_generica = len(tokens) == 1 and len(tokens[0]) <= 5
-        q_attrs = _extraer_atributos(linea)
-
-        # ── PASO 1: Candidatos usando OR de tokens (permisivo) ──
-        # En lugar de AND (todos los tokens), usamos unión — cualquier token
-        # que matchee en el índice hace que el producto sea candidato.
-        # El scoring con penalización se encarga del filtrado fino.
-        candidatos_idx = set()
-
-        # Tokens "ancla" — los más específicos/discriminantes
-        # Priorizamos tokens largos o alfanuméricos (marca, modelo)
-        tokens_ordenados = sorted(tokens, key=lambda t: (
-            -len(t),                          # más largo primero
-            0 if re.search(r'[0-9]', t) else 1,  # con números primero (z350, p60)
-        ))
-
-        for token in tokens_ordenados:
-            stem = stemming_basico(token)
-            # Buscar en el índice por token exacto y prefijo
-            nuevos = set()
-            if token in _indice: nuevos |= _indice[token]
-            if stem in _indice: nuevos |= _indice[stem]
-            if len(token) >= 3:
-                for key in _indice:
-                    if key.startswith(token) and not key.startswith("__sin__"):
-                        nuevos |= _indice[key]
-            candidatos_idx |= nuevos
-
-        # ── FILTRO DURO DE MARCA ──
-        # Si el query contiene una marca conocida, solo candidatos con esa marca
-        marcas_en_query = [t for t in tokens if t in _MARCAS]
-        if marcas_en_query:
-            idx_con_marca = set()
-            for m in marcas_en_query:
-                if m in _indice: idx_con_marca |= _indice[m]
-                for key in _indice:
-                    if key.startswith(m) and not key.startswith("__sin__"):
-                        idx_con_marca |= _indice[key]
-            if idx_con_marca:
-                candidatos_idx = candidatos_idx & idx_con_marca if candidatos_idx else idx_con_marca
-
-        # ── FILTRO DURO DE MODELO ──
-        # Si el query tiene un modelo alfanumérico (z350, p60, z250, etc.)
-        # DESCARTAR cualquier candidato que tenga un modelo DIFERENTE en su nombre.
-        # Z350 ≠ Z250 ≠ P60 — no son "similares", son productos distintos.
-        modelo_query = q_attrs.get("modelo")
-        if modelo_query and len(modelo_query) >= 3:
-            # Extraer raíz numérica del modelo (z350 → 350, p60 → 60)
-            raiz_query = re.sub(r'^[a-z]+', '', modelo_query)  # "350" de "z350"
-
-            def modelo_compatible(idx_prod):
-                """Devuelve True si el producto es compatible con el modelo del query."""
-                p = productos[idx_prod]
-                p_attrs = _extraer_atributos(p["nombre"])
-                modelo_prod = p_attrs.get("modelo")
-
-                if modelo_prod is None:
-                    # Sin modelo en nombre → puede ser variante de tienda (ej: "P60 POSTERIORES")
-                    # Solo incluir si tiene algún token del modelo en el nombre
-                    p_norm = nombres_norm[idx_prod]
-                    return modelo_query in p_norm or raiz_query in p_norm
-
-                # Tiene modelo → debe coincidir exactamente o ser compatible
-                # Compatible: z350xt matchea z350 (xt es sufijo de versión)
-                raiz_prod = re.sub(r'^[a-z]+', '', modelo_prod)
-                prefijo_query = re.sub(r'[a-z]+$', '', modelo_query)  # "z350" de "z350xt"
-                prefijo_prod = re.sub(r'[a-z]+$', '', modelo_prod)
-
-                return (
-                    modelo_prod == modelo_query or          # exacto
-                    modelo_prod.startswith(prefijo_query) or # z350 matchea z350xt
-                    modelo_query.startswith(prefijo_prod)    # z350xt matchea z350
-                )
-
-            candidatos_filtrados = {i for i in candidatos_idx if modelo_compatible(i)}
-            # Solo aplicar si hay resultados — si no, mantener todos (evitar cero)
-            if candidatos_filtrados:
-                candidatos_idx = candidatos_filtrados
-
-        # Fallback si el índice no encontró nada
-        if not candidatos_idx:
-            for i, nombre in enumerate(nombres_norm):
-                s = max(int(fuzz.partial_ratio(q_norm, nombre)),
-                        int(fuzz.token_set_ratio(q_norm, nombre)))
-                if s >= 50:
-                    candidatos_idx.add(i)
-
-        if not candidatos_idx:
-            return {"linea": linea, "matches": [], "generica": es_generica,
-                    "aviso": "No encontramos coincidencias — probá con otro término"}
-
-        # ── PASO 2: Scoring universal para cada candidato ──
-        scored = []
-        for i in candidatos_idx:
-            p = productos[i]
-            p_norm = nombres_norm[i]
-            p_attrs = _extraer_atributos(p["nombre"])
-
-            # Score base fuzzy
-            base = max(
-                int(fuzz.token_set_ratio(q_norm, p_norm)),
-                int(fuzz.partial_ratio(q_norm, p_norm)),
-            )
-
-            # Aplicar scoring de atributos (penaliza conflictos)
-            score, _, detalles = _score_atributos(q_attrs, p_attrs, q_norm, p_norm)
-
-            # Umbral mínimo: debe tener al menos base >= 45
-            if base >= 45 and score >= 25:
-                scored.append((score, base, detalles, p))
-
-        if not scored:
-            return {"linea": linea, "matches": [], "generica": es_generica,
-                    "aviso": "No encontramos coincidencias exactas"}
-
-        # Ordenar: score desc, luego precio asc
-        scored.sort(key=lambda x: (-x[0], x[3]["precio"]))
-
-        # ── PASO 3: Armar matches con clasificación de confianza ──
-        matches = []
-        for score, base, detalles, p in scored[:5]:
-            conflictos = [d for d in detalles if d.startswith("✗")]
-
-            if score >= 80 and not conflictos:
-                nivel = "alta"
-            elif score >= 55 and len(conflictos) <= 1:
-                nivel = "media"
-            else:
-                nivel = "baja"
-
-            # Detectar si el query pedía tono/tipo pero el producto no lo especifica
-            # (el producto tiene variantes — el usuario tiene que elegir en la tienda)
-            nota_variante = None
-            q_tono = q_attrs.get("tono")
-            p_tono = p_attrs.get("tono")
-            if q_tono and p_tono is None:
-                nota_variante = f"Verificar tono {q_tono.upper()} en tienda"
-
-            matches.append({
-                "id": p["id"],
-                "nombre": p["nombre"],
-                "tienda": p["tienda_nombre"],
-                "tienda_slug": p["tienda_slug"],
-                "precio": p["precio"],
-                "precio_fmt": p["precio_fmt"],
-                "url": p.get("url", ""),
-                "confianza": score,
-                "confianza_nivel": nivel,
-                "detalles_match": detalles[:4],
-                "conflictos": conflictos,
-                "nota_variante": nota_variante,
-            })
-
-        aviso = None
-        if es_generica:
-            aviso = "Agregá marca, modelo o detalle para mejores resultados"
-        elif matches and matches[0]["confianza_nivel"] == "baja":
-            aviso = "No encontramos coincidencia exacta — mostramos opciones similares"
-        elif matches and matches[0]["conflictos"]:
-            aviso = f"Atención: {', '.join(matches[0]['conflictos'][:2])}"
-
-        return {
-            "linea": linea,
-            "matches": matches,
-            "generica": es_generica,
-            "aviso": aviso,
-        }
-
-    resultados = [buscar_linea(l) for l in lineas]
-
-    # Construir las 3 estrategias de compra
-    def estrategia_mas_barato(resultados):
-        """El producto más barato para cada línea, sin importar tienda."""
-        total = 0
-        tiendas_usadas = set()
-        items = []
-        for r in resultados:
-            if not r["matches"]:
-                items.append(None)
-                continue
-            mejor = min((m for m in r["matches"] if m["precio"] > 0), key=lambda m: m["precio"], default=None)
-            if mejor:
-                items.append(mejor)
-                total += mejor["precio"]
-                tiendas_usadas.add(mejor["tienda"])
-            else:
-                items.append(None)
-        return {"items": items, "total": total, "n_tiendas": len(tiendas_usadas),
-                "tiendas": list(tiendas_usadas)}
-
-    def estrategia_menos_tiendas(resultados):
-        """Concentrar la compra en la menor cantidad de tiendas posible."""
-        from collections import Counter
-        # Contar qué tienda aparece más como opción barata
-        tienda_scores = Counter()
-        for r in resultados:
-            for m in r["matches"][:3]:
-                if m["precio"] > 0:
-                    tienda_scores[m["tienda"]] += 1
-
-        if not tienda_scores:
-            return estrategia_mas_barato(resultados)
-
-        tienda_principal = tienda_scores.most_common(1)[0][0]
-        total = 0
-        tiendas_usadas = set()
-        items = []
-        for r in resultados:
-            if not r["matches"]:
-                items.append(None)
-                continue
-            # Preferir la tienda principal, si no está disponible usar el más barato
-            de_tienda = [m for m in r["matches"] if m["tienda"] == tienda_principal and m["precio"] > 0]
-            if de_tienda:
-                mejor = min(de_tienda, key=lambda m: m["precio"])
-            else:
-                mejor = min((m for m in r["matches"] if m["precio"] > 0),
-                           key=lambda m: m["precio"], default=None)
-            if mejor:
-                items.append(mejor)
-                total += mejor["precio"]
-                tiendas_usadas.add(mejor["tienda"])
-            else:
-                items.append(None)
-        return {"items": items, "total": total, "n_tiendas": len(tiendas_usadas),
-                "tiendas": list(tiendas_usadas)}
-
-    def estrategia_balanceada(resultados):
-        """Top 2 tiendas con más productos disponibles."""
-        from collections import Counter
-        tienda_scores = Counter()
-        for r in resultados:
-            for m in r["matches"][:3]:
-                if m["precio"] > 0:
-                    tienda_scores[m["tienda"]] += 1
-        top2 = {t for t, _ in tienda_scores.most_common(2)}
-        total = 0
-        tiendas_usadas = set()
-        items = []
-        for r in resultados:
-            if not r["matches"]:
-                items.append(None)
-                continue
-            de_top2 = [m for m in r["matches"] if m["tienda"] in top2 and m["precio"] > 0]
-            if de_top2:
-                mejor = min(de_top2, key=lambda m: m["precio"])
-            else:
-                mejor = min((m for m in r["matches"] if m["precio"] > 0),
-                           key=lambda m: m["precio"], default=None)
-            if mejor:
-                items.append(mejor)
-                total += mejor["precio"]
-                tiendas_usadas.add(mejor["tienda"])
-            else:
-                items.append(None)
-        return {"items": items, "total": total, "n_tiendas": len(tiendas_usadas),
-                "tiendas": list(tiendas_usadas)}
-
-    est_barato = estrategia_mas_barato(resultados)
-    est_tiendas = estrategia_menos_tiendas(resultados)
-    est_balance = estrategia_balanceada(resultados)
-
-    return jsonify({
-        "lineas": resultados,
-        "estrategias": {
-            "mas_barato": est_barato,
-            "menos_tiendas": est_tiendas,
-            "balanceado": est_balance,
-        }
-    })
-
-@app.route("/api/actualizar", methods=["POST"])
-def actualizar():
-    clave = request.args.get("clave", "")
-    ADMIN_CLAVE = os.environ.get("ADMIN_CLAVE")
-    if not ADMIN_CLAVE or clave != ADMIN_CLAVE:
-        return jsonify({"error": "No autorizado"}), 403
-    def _run():
-        nuevos = correr_scraper()
-        _cache["productos"] = nuevos
-        _cache["nombres_norm"] = None
-        global _nombres_norm_cache, _indice
-        _nombres_norm_cache = []
-        _indice = {}
-    threading.Thread(target=_run, daemon=True).start()
-    return jsonify({"ok": True, "mensaje": "Actualizando en segundo plano..."})
+            except: pass
+    return jsonify({"entradas":entradas,"precio_30d":precio_30d,"variacion_pct":variacion})
 
 @app.route("/api/reporte", methods=["POST"])
 def reporte():
     data = request.get_json(silent=True) or {}
-    producto_id = str(data.get("id", ""))[:50]
-    nombre = str(data.get("nombre", ""))[:200]
-    tienda = str(data.get("tienda", ""))[:100]
-    try:
-        precio_actual = float(data.get("precio", 0))
-    except (ValueError, TypeError):
-        precio_actual = 0.0
-    comentario = str(data.get("comentario", ""))[:200]
-    ip = request.remote_addr or ""
-    if not producto_id or not nombre:
-        return jsonify({"error": "Datos incompletos"}), 400
-    guardar_reporte(producto_id, nombre, tienda, precio_actual, comentario, ip)
-    return jsonify({"ok": True})
+    producto_id = str(data.get("id",""))[:50]
+    nombre = str(data.get("nombre",""))[:200]
+    tienda = str(data.get("tienda",""))[:100]
+    try: precio_actual = float(data.get("precio",0))
+    except: precio_actual = 0.0
+    comentario = str(data.get("comentario",""))[:200]
+    if not producto_id or not nombre: return jsonify({"error":"Datos incompletos"}),400
+    guardar_reporte(producto_id, nombre, tienda, precio_actual, comentario, request.remote_addr or "")
+    return jsonify({"ok":True})
 
-@app.route("/admin/reportes")
-def ver_reportes():
-    clave = request.args.get("clave", "")
-    ADMIN_CLAVE = os.environ.get("ADMIN_CLAVE")
-    if not ADMIN_CLAVE or clave != ADMIN_CLAVE:
-        return "Acceso denegado", 403
-    if not os.path.exists(REPORTES_PATH):
-        return "No hay reportes todavia.", 200
-    try:
-        import csv, io
-        with open(REPORTES_PATH, encoding="utf-8") as f:
-            reportes = json.load(f)
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(["Fecha", "Tienda", "Producto", "Precio actual", "Comentario"])
-        for r in reversed(reportes):
-            writer.writerow([r.get("fecha",""), r.get("tienda",""), r.get("nombre",""),
-                             r.get("precio_actual",""), r.get("comentario","")])
-        return Response("\ufeff" + output.getvalue(), mimetype="text/csv",
-                       headers={"Content-Disposition": "attachment; filename=reportes.csv"})
-    except Exception as e:
-        return f"Error: {e}", 500
+@app.route("/api/reporte-scraping")
+def reporte_scraping():
+    rp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reporte_scraping.json")
+    if not os.path.exists(rp): return jsonify({"error":"No hay reporte disponible aún."}),404
+    with open(rp, encoding="utf-8") as f: return jsonify(json.load(f))
 
 @app.route("/api/stats")
 def stats():
     productos = get_productos()
     por_tienda = {}
     for p in productos:
-        t = p["tienda_nombre"]
-        por_tienda[t] = por_tienda.get(t, 0) + 1
-    return jsonify({"total": len(productos), "por_tienda": por_tienda})
+        t = p["tienda_nombre"]; por_tienda[t] = por_tienda.get(t,0)+1
+    return jsonify({"total":len(productos),"por_tienda":por_tienda})
 
-@app.route("/api/reporte-scraping")
-def reporte_scraping():
-    reporte_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reporte_scraping.json")
-    if not os.path.exists(reporte_path):
-        return jsonify({"error": "No hay reporte disponible aún."}), 404
-    with open(reporte_path, encoding="utf-8") as f:
-        return jsonify(json.load(f))
+@app.route("/api/actualizar", methods=["POST"])
+def actualizar():
+    clave = request.args.get("clave","")
+    ADMIN_CLAVE = os.environ.get("ADMIN_CLAVE")
+    if not ADMIN_CLAVE or clave != ADMIN_CLAVE:
+        return jsonify({"error":"No autorizado"}),403
+    def _run():
+        nuevos = correr_scraper()
+        with _data_lock:
+            _estado["productos"] = [p for p in nuevos if len(p.get("nombre","").strip())>=8 and p.get("precio",0)>0]
+            _estado["nombres_norm"] = None
+        construir_indice(_estado["productos"])
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok":True,"mensaje":"Actualizando en segundo plano..."})
+
+@app.route("/admin/reportes")
+def ver_reportes():
+    clave = request.args.get("clave","")
+    ADMIN_CLAVE = os.environ.get("ADMIN_CLAVE")
+    if not ADMIN_CLAVE or clave != ADMIN_CLAVE: return "Acceso denegado",403
+    if not os.path.exists(REPORTES_PATH): return "No hay reportes.",200
+    try:
+        import csv, io
+        with open(REPORTES_PATH, encoding="utf-8") as f: reportes = json.load(f)
+        output = io.StringIO()
+        w = csv.writer(output)
+        w.writerow(["Fecha","Tienda","Producto","Precio","Comentario"])
+        for r in reversed(reportes):
+            w.writerow([r.get("fecha",""),r.get("tienda",""),r.get("nombre",""),r.get("precio_actual",""),r.get("comentario","")])
+        return Response("\ufeff"+output.getvalue(), mimetype="text/csv",
+                       headers={"Content-Disposition":"attachment; filename=reportes.csv"})
+    except Exception as e: return f"Error: {e}",500
+
+@app.route("/api/compra-inteligente", methods=["POST"])
+def compra_inteligente():
+    data = request.get_json(silent=True) or {}
+    lineas_raw = str(data.get("lista","")).strip().split("\n")
+    lineas = [l.strip() for l in lineas_raw if l.strip() and len(l.strip())>1][:30]
+    if not lineas: return jsonify({"error":"Lista vacía"}),400
+
+    productos = get_productos()
+    nombres_norm = get_nombres_norm()
+
+    def buscar_linea(linea):
+        q_norm = normalizar(linea)
+        tokens = [t for t in q_norm.split() if t not in STOPWORDS and len(t)>1]
+        if not tokens:
+            return {"linea":linea,"matches":[],"generica":True,"aviso":"Línea muy genérica"}
+
+        es_generica = len(tokens)==1 and len(tokens[0])<=5
+        q_attrs = catalogar(linea)
+        q_tokens = clasificar_tokens(q_norm)
+
+        # OR de tokens
+        tokens_ord = sorted(tokens, key=lambda t: (-len(t), 0 if _re.search(r'[0-9]',t) else 1))
+        cands = set()
+        for t in tokens_ord:
+            stem = stemming_basico(t)
+            if t in _indice: cands |= _indice[t]
+            if stem in _indice: cands |= _indice[stem]
+            for key in _indice:
+                if key.startswith(t) and not key.startswith("__sin__"): cands |= _indice[key]
+
+        # Filtro marca
+        marcas_q = [t for t in tokens if t in _MARCAS]
+        if marcas_q:
+            idx_m = set()
+            for m in marcas_q:
+                if m in _indice: idx_m |= _indice[m]
+                for key in _indice:
+                    if key.startswith(m) and not key.startswith("__sin__"): idx_m |= _indice[key]
+            if idx_m: cands = cands & idx_m if cands else idx_m
+
+        # Filtro modelo
+        modelo_q = q_attrs.get("modelo")
+        if modelo_q and len(modelo_q)>=3 and cands:
+            pq2 = _re.sub(r'[a-z]+$','',modelo_q)
+            def _mok(i):
+                pa = catalogar(productos[i]["nombre"]); mp = pa.get("modelo"); pn = nombres_norm[i]
+                if mp is None: return modelo_q in pn or _re.sub(r'^[a-z]+','',modelo_q) in pn
+                pp3 = _re.sub(r'[a-z]+$','',mp)
+                return mp==modelo_q or mp.startswith(pq2) or modelo_q.startswith(pp3)
+            cm = {i for i in cands if _mok(i)}
+            if cm: cands = cm
+
+        if not cands:
+            for i, nombre in enumerate(nombres_norm):
+                s = max(int(fuzz.partial_ratio(q_norm,nombre)), int(fuzz.token_set_ratio(q_norm,nombre)))
+                if s >= 50: cands.add(i)
+
+        scored = []
+        for i in cands:
+            p = productos[i]; p_norm = nombres_norm[i]
+            p_attrs = catalogar(p["nombre"])
+            base = max(int(fuzz.token_set_ratio(q_norm,p_norm)), int(fuzz.partial_ratio(q_norm,p_norm)))
+            q_t_imp = [t for t in q_norm.split() if len(t)>=3 and t not in _STOP_LOCAL and not _re.match(r'^\d+$',t)]
+            p_junto = p_norm.replace(" ","")
+            ausentes = sum(1 for t in q_t_imp if t not in p_norm and t not in p_junto)
+            base_adj = max(0, base - ausentes*8)
+            s = score_relevancia(q_tokens, q_attrs, p_norm, p_attrs)
+            final = max(0, min(100, (base_adj + max(0,s)) // 2))
+            if base >= 45 and final >= 20: scored.append((final, base, p))
+
+        scored.sort(key=lambda x: (-x[0], x[2]["precio"]))
+        matches = []
+        for sc, base, p in scored[:5]:
+            nivel = "alta" if sc>=80 else "media" if sc>=55 else "baja"
+            nota = None
+            q_tono = q_attrs.get("tono")
+            if q_tono and not catalogar(p["nombre"]).get("tono"):
+                nota = f"Verificar tono {q_tono.upper()} en tienda"
+            matches.append({"id":p["id"],"nombre":p["nombre"],"tienda":p["tienda_nombre"],
+                            "tienda_slug":p["tienda_slug"],"precio":p["precio"],
+                            "precio_fmt":p["precio_fmt"],"url":p.get("url",""),
+                            "confianza":sc,"confianza_nivel":nivel,"nota_variante":nota})
+
+        aviso = "Agregá marca o detalle para mejores resultados" if es_generica else None
+        return {"linea":linea,"matches":matches,"generica":es_generica,"aviso":aviso}
+
+    resultados = [buscar_linea(l) for l in lineas]
+
+    def calc_est(resultados, tipo):
+        from collections import Counter
+        items = []
+        if tipo == "mas_barato":
+            for r in resultados:
+                m = min((x for x in r["matches"] if x["precio"]>0),key=lambda x:x["precio"],default=None)
+                items.append(m)
+        elif tipo == "menos_tiendas":
+            cnt = Counter(m["tienda"] for r in resultados for m in r["matches"][:3] if m["precio"]>0)
+            top = cnt.most_common(1)[0][0] if cnt else None
+            for r in resultados:
+                de_top = [x for x in r["matches"] if x["tienda"]==top and x["precio"]>0]
+                m = min(de_top,key=lambda x:x["precio"],default=None) or min((x for x in r["matches"] if x["precio"]>0),key=lambda x:x["precio"],default=None)
+                items.append(m)
+        else:
+            cnt = Counter(m["tienda"] for r in resultados for m in r["matches"][:3] if m["precio"]>0)
+            top2 = {t for t,_ in cnt.most_common(2)}
+            for r in resultados:
+                de_top2 = [x for x in r["matches"] if x["tienda"] in top2 and x["precio"]>0]
+                m = min(de_top2,key=lambda x:x["precio"],default=None) or min((x for x in r["matches"] if x["precio"]>0),key=lambda x:x["precio"],default=None)
+                items.append(m)
+        total = sum(x["precio"] for x in items if x)
+        tiendas = list({x["tienda"] for x in items if x})
+        return {"items":items,"total":total,"n_tiendas":len(tiendas),"tiendas":tiendas}
+
+    return jsonify({
+        "lineas": resultados,
+        "estrategias": {
+            "mas_barato": calc_est(resultados,"mas_barato"),
+            "menos_tiendas": calc_est(resultados,"menos_tiendas"),
+            "balanceado": calc_est(resultados,"balanceado"),
+        }
+    })
 
 
-_actualizar_si_es_necesario()
+# ─── INICIO ───────────────────────────────────────────────────────────────────
+print("\n🦷 OdontoPrecio iniciando...")
+print(f"  GitHub Raw URL: {GITHUB_RAW_URL}")
+cargar_productos_inicial()
+
+# Thread de verificación cada 15 minutos
+threading.Thread(target=verificar_actualizacion, daemon=True).start()
+print("  Verificación automática cada 15 minutos iniciada\n")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     debug = os.environ.get("FLASK_ENV") != "production"
-    print(f"\n🦷 OdontoPrecio arrancando en puerto {port}...")
-    if debug:
-        print(f"📡 Abrí tu navegador en: http://localhost:{port}\n")
+    print(f"📡 http://localhost:{port}\n")
     app.run(debug=debug, host="0.0.0.0", port=port)
