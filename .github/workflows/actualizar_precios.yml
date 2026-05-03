@@ -8,6 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Clonar repositorio
         uses: actions/checkout@v4
@@ -31,7 +33,7 @@ jobs:
             echo "❌ ERROR: productos.json no fue generado"
             exit 1
           fi
-          COUNT=$(python3 -c "import json; d=json.load(open('productos.json')); print(len(d))")
+          COUNT=$(python3 -c "import json; d=json.load(open('productos.json')); print(len(d['productos']) if isinstance(d, dict) and 'productos' in d else len(d))")
           SIZE=$(wc -c < productos.json)
           echo "✅ productos.json: ${COUNT} productos, ${SIZE} bytes"
           if [ "$COUNT" -lt 5000 ]; then
