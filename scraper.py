@@ -10,7 +10,8 @@ except ImportError:
     USE_CURL = False
 
 from bs4 import BeautifulSoup
-import json, os, time, re, hashlib, hashlib
+import json, os, time, re, hashlib
+from catalogador import catalogar, hashlib
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -298,7 +299,6 @@ def formatear_precio(precio):
 
 def hacer_producto(tienda, nombre, precio, url_prod, imagen):
     try:
-        from catalogador import catalogar
         attrs = catalogar(nombre)
     except Exception:
         attrs = {}
