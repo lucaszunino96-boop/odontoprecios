@@ -11,7 +11,7 @@ except ImportError:
 
 from bs4 import BeautifulSoup
 import json, os, time, re, hashlib
-from catalogador import catalogar, hashlib
+from catalogador import catalogar
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
