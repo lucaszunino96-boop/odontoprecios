@@ -331,6 +331,36 @@ def clasificar_tokens(query: str) -> dict:
     }
 
 
+
+# ─── SINÓNIMOS (exportados para uso en app.py) ────────────────────────────────
+SINONIMOS_GRUPOS = [
+    {"composite","resina","compomero","restaurador"},
+    {"anestesia","anescart","carpule","mepivacaina","lidocaina","articaina",
+     "scandicaine","mepinor","alphacaine","ultracaine","septocaine"},
+    {"gutapercha","guttapercha","guta","conos gutapercha","puntas gutapercha"},
+    {"lima","limas","endodoncia","protaper","waveone","reciproc","mtwo"},
+    {"fresa","fresas","turbina","micromotor","contraangulo"},
+    {"bracket","brackets","ortodoncia","arco","alambre"},
+    {"adhesivo","bond","primer","bonding"},
+    {"cemento","ionomero","ionómero","relyx","panavia","multilink"},
+    {"blanqueamiento","blanqueador","whitening","peroxido"},
+    {"impresion","alginato","silicona","vinilpolisiloxano","putty"},
+    {"guante","guantes","latex","nitrilo","bioseguridad"},
+    {"radiografia","rx","pelicula","placa radiografica"},
+    {"poste","perno","fibra de vidrio"},
+    {"sellante","sellador","fisuras"},
+    {"yeso","escayola","piedra dental"},
+    {"protesis","acrilico","dentadura"},
+    {"hipoclorito","irrigante","edta","irrigacion"},
+    {"cirugia","bisturi","suturas","periodoncia"},
+    {"implante","implantologia","pilar","tornillo"},
+]
+
+def _norm_sin(s: str) -> str:
+    """Normaliza un término para el mapa de sinónimos."""
+    return normalizar(s)
+
+
 if __name__ == "__main__":
     # Tests rápidos
     tests = [
