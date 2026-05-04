@@ -147,9 +147,15 @@ def cargar_productos_inicial():
     try:
         print("  Usando productos.json del disco...")
         productos_disco = cargar_productos()
+        # cargar_productos() ya devuelve lista (maneja formato nuevo y viejo)
+        if isinstance(productos_disco, dict) and "productos" in productos_disco:
+            productos_disco = productos_disco["productos"]
+        elif not isinstance(productos_disco, list):
+            productos_disco = []
         productos = [
             p for p in productos_disco
-            if len(p.get("nombre", "").strip()) >= 8
+            if isinstance(p, dict)
+            and len(p.get("nombre", "").strip()) >= 8
             and p.get("precio", 0) > 0
         ]
         with _data_lock:
