@@ -89,13 +89,22 @@ jobs:
         run: |
           git config user.name "OdontoPrecio Bot"
           git config user.email "bot@odontoprecios.onrender.com"
-          git add productos.json reporte_scraping.json historial.json 2>/dev/null || true
-          echo "=== git status despues del add ==="
+          echo "=== Archivos antes del add ==="
+          ls -lah productos.json reporte_scraping.json 2>/dev/null || true
+          echo "=== Verificar assume-unchanged / skip-worktree ==="
+          git ls-files -v productos.json
+          echo "=== git add (sin suprimir errores) ==="
+          git update-index --no-assume-unchanged productos.json 2>/dev/null || true
+          git update-index --no-skip-worktree productos.json 2>/dev/null || true
+          git add productos.json
+          git add reporte_scraping.json 2>/dev/null || true
+          git add historial.json 2>/dev/null || true
+          echo "=== Resultado del add ==="
           git status
           echo "=== git diff --cached --stat ==="
           git diff --cached --stat
           if git diff --cached --quiet; then
-            echo "Sin cambios detectados - el JSON es identico al del repo"
+            echo "Sin cambios detectados"
             exit 0
           fi
           git commit -m "Actualizacion automatica de precios: $(date +'%d/%m/%Y %H:%M')"
