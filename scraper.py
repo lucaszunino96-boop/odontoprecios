@@ -1141,7 +1141,14 @@ def correr_scraper():
     if os.path.exists(DB_PATH):
         try:
             with open(DB_PATH, encoding="utf-8") as f:
-                cache_existente = json.load(f)
+                _datos = json.load(f)
+            # Soportar formato nuevo {"productos": [...], "meta": {...}} y viejo [...]
+            if isinstance(_datos, dict) and "productos" in _datos:
+                cache_existente = _datos["productos"]
+            elif isinstance(_datos, list):
+                cache_existente = _datos
+            else:
+                cache_existente = []
             print(f"Cache cargado: {len(cache_existente)} productos existentes")
         except Exception as ex:
             print(f"  ! No se pudo cargar cache: {ex}")
@@ -1299,7 +1306,13 @@ def cargar_productos():
     if not os.path.exists(DB_PATH):
         return correr_scraper()
     with open(DB_PATH, encoding="utf-8") as f:
-        return json.load(f)
+        _datos = json.load(f)
+    # Soportar formato nuevo {"productos": [...], "meta": {...}} y viejo [...]
+    if isinstance(_datos, dict) and "productos" in _datos:
+        return _datos["productos"]
+    elif isinstance(_datos, list):
+        return _datos
+    return []
 
 if __name__ == "__main__":
     correr_scraper()
