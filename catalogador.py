@@ -41,6 +41,43 @@ _MARCAS = {
     "klepp", "delta", "metabiomed", "reciproc",
 }
 
+# Modelos con marca implícita — si aparece el modelo, se infiere la marca
+# No existe P60 de otra marca que no sea 3M, etc.
+_MODELO_MARCA = {
+    # 3M / Solventum
+    "p60": "3m", "z350": "3m", "z250": "3m", "z100": "3m",
+    "filtek": "3m", "supreme": "3m", "silorane": "3m",
+    "single bond": "3m", "scotchbond": "3m", "adper": "3m",
+    "ketac": "3m", "relyx": "3m", "espe": "3m",
+    # Ivoclar
+    "tetric": "ivoclar", "empress": "ivoclar", "ips": "ivoclar",
+    "vivadent": "ivoclar", "multilink": "ivoclar", "variolink": "ivoclar",
+    "optibond": "ivoclar",
+    # Dentsply / Maillefer
+    "protaper": "dentsply", "waveone": "dentsply", "reciproc": "dentsply",
+    "maillefer": "dentsply", "smartlite": "dentsply", "aquasil": "dentsply",
+    "caulk": "dentsply", "nupro": "dentsply",
+    # Angelus
+    "mta angelus": "angelus", "fillcanal": "angelus",
+    # GC
+    "fuji": "gc", "g-aenial": "gc", "gradia": "gc",
+    # Kerr
+    "herculite": "kerr", "harmonize": "kerr", "maxcem": "kerr",
+    "nexus": "kerr", "optibond": "kerr",
+    # Voco
+    "grandio": "voco", "ionolux": "voco",
+    # Ultradent
+    "opalescence": "ultradent",
+    # SDI
+    "luna": "sdi", "riva": "sdi",
+    # Coltene
+    "brilliant": "coltene", "synergy": "coltene",
+    # American Orthodontics
+    "roth": "american orthodontics", "mbt": "american orthodontics",
+    # Ormco
+    "damon": "ormco",
+}
+
 # Tipos de producto — palabras genéricas que identifican la categoría
 _TIPOS = {
     "composite": "composite",
@@ -180,6 +217,12 @@ def catalogar(nombre_crudo: str) -> dict:
         if re.search(r"\b" + re.escape(marca) + r"\b", t):
             attrs["marca"] = marca
             break
+    # Si no detectó marca, inferir desde modelo/línea conocida
+    if not attrs.get("marca"):
+        for modelo_key, marca_implicita in _MODELO_MARCA.items():
+            if re.search(r"\b" + re.escape(modelo_key) + r"\b", t):
+                attrs["marca"] = marca_implicita
+                break
 
     # ── LÍNEA COMERCIAL (Filtek, Tetric, ProTaper, etc.) ──
     # Detectar palabras con mayúscula inicial que no son tipo/marca ya detectada
