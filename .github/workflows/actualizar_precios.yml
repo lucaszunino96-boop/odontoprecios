@@ -108,7 +108,8 @@ jobs:
             exit 0
           fi
           git commit -m "Actualizacion automatica de precios: $(date +'%d/%m/%Y %H:%M')"
-          git push --force-with-lease origin main
+          git pull --rebase origin main
+          git push origin main
           echo "Push exitoso a GitHub"
 
       - name: Trigger Render deploy
