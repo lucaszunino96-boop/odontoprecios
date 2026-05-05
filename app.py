@@ -262,7 +262,8 @@ _MARCAS = {
     'woodpecker','nsk','morita','hu-friedy','solventum','espe',
     'american orthodontics','coltene','shofu','tokuyama','bisco',
     'anescart','alphacaine','mepinor','scandicaine','ultracaine',
-    'klepp','metabiomed','maillefer',
+    'klepp','metabiomed','maillefer','sdi','coltene','brilliant',
+    'filtek','protaper','waveone','fuji','tetric','opalescence',
 }
 
 # ─── ÍNDICE INVERTIDO ─────────────────────────────────────────────────────────
