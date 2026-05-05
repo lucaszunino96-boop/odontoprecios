@@ -343,6 +343,14 @@ def _token_presente_en(tok, nombre_norm, nombre_junto):
             any(nt.startswith(tok_clean) or tok_clean.startswith(_re.sub(r'[a-z]+$','',nt))
                 for nt in nombre_norm.split() if len(nt) >= 2))
 
+
+def _get_attrs(producto: dict) -> dict:
+    """Usa attrs pre-calculados si existen, sino cataloga en tiempo real."""
+    attrs = producto.get("attrs")
+    if attrs and isinstance(attrs, dict) and len(attrs) > 0:
+        return attrs
+    return catalogar(producto.get("nombre", ""))
+
 def score_relevancia(q_tokens, q_attrs, nombre_norm, prod_attrs):
     score = 0
     nombre_junto = nombre_norm.replace(" ","")
@@ -397,7 +405,7 @@ def busqueda_fuzzy(q_norm, productos, nombres_norm, excluir_ids=None):
         p = productos[i]
         if p["id"] in excluir: continue
         if tiene_esp:
-            p_attrs = catalogar(p["nombre"])
+            p_attrs = _get_attrs(p)
             s = score_relevancia(q_tokens, q_attrs, nombre, p_attrs)
             if s >= -50: resultados.append((s, p))
         else:
@@ -506,7 +514,7 @@ def buscar():
     if modelo_q and len(modelo_q) >= 3:
         pq = _re.sub(r'[a-z]+$','', modelo_q)
         def _modelo_ok(i):
-            pa = catalogar(productos[i]["nombre"])
+            pa = _get_attrs(productos[i])
             mp = pa.get("modelo"); pn = nombres_norm[i]
             if mp is None: return modelo_q in pn or _re.sub(r'^[a-z]+','',modelo_q) in pn
             pp2 = _re.sub(r'[a-z]+$','',mp)
@@ -518,7 +526,7 @@ def buscar():
     if tiene_especificos:
         scored = []
         for i in candidatos:
-            p_attrs = catalogar(productos[i]["nombre"])
+            p_attrs = _get_attrs(productos[i])
             s = score_relevancia(q_tokens, q_attrs, nombres_norm[i], p_attrs)
             scored.append((s, productos[i]))
         scored.sort(key=lambda x: (-x[0], x[1]["precio"]))
@@ -708,7 +716,7 @@ def compra_inteligente():
         if modelo_q and len(modelo_q)>=3 and cands:
             pq2 = _re.sub(r'[a-z]+$','',modelo_q)
             def _mok(i):
-                pa = catalogar(productos[i]["nombre"]); mp = pa.get("modelo"); pn = nombres_norm[i]
+                pa = _get_attrs(productos[i]); mp = pa.get("modelo"); pn = nombres_norm[i]
                 if mp is None: return modelo_q in pn or _re.sub(r'^[a-z]+','',modelo_q) in pn
                 pp3 = _re.sub(r'[a-z]+$','',mp)
                 return mp==modelo_q or mp.startswith(pq2) or modelo_q.startswith(pp3)
@@ -723,7 +731,7 @@ def compra_inteligente():
         scored = []
         for i in cands:
             p = productos[i]; p_norm = nombres_norm[i]
-            p_attrs = catalogar(p["nombre"])
+            p_attrs = _get_attrs(p)
             base = max(int(fuzz.token_set_ratio(q_norm,p_norm)), int(fuzz.partial_ratio(q_norm,p_norm)))
             q_t_imp = [t for t in q_norm.split() if len(t)>=3 and t not in _STOP_LOCAL and not _re.match(r'^\d+$',t)]
             p_junto = p_norm.replace(" ","")
@@ -739,7 +747,7 @@ def compra_inteligente():
             nivel = "alta" if sc>=80 else "media" if sc>=55 else "baja"
             nota = None
             q_tono = q_attrs.get("tono")
-            if q_tono and not catalogar(p["nombre"]).get("tono"):
+            if q_tono and not _get_attrs(p).get("tono"):
                 nota = f"Verificar tono {q_tono.upper()} en tienda"
             matches.append({"id":p["id"],"nombre":p["nombre"],"tienda":p["tienda_nombre"],
                             "tienda_slug":p["tienda_slug"],"precio":p["precio"],
