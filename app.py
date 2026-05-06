@@ -505,9 +505,23 @@ def buscar():
     candidatos = list(candidatos_idx) if candidatos_idx is not None else list(range(len(productos)))
 
     # Filtro duro de marca
+    # Si el query no tiene marca explícita, inferirla del modelo (p60→3m, protaper→dentsply, etc.)
     marcas_q = [t for t in tokens_idx if t in _MARCAS]
+    if not marcas_q and q_attrs.get("marca"):
+        marcas_q = [q_attrs["marca"]]
     if marcas_q:
-        con_marca = [i for i in candidatos if any(m in nombres_norm[i] or m in nombres_norm[i].replace(" ","") for m in marcas_q)]
+        def _tiene_marca(i):
+            nombre = nombres_norm[i]
+            # Buscar en el nombre
+            if any(m in nombre or m in nombre.replace(" ","") for m in marcas_q):
+                return True
+            # Buscar en attrs pre-calculados
+            p_attrs = productos[i].get("attrs") or {}
+            p_marca = p_attrs.get("marca","")
+            if any(m == p_marca for m in marcas_q):
+                return True
+            return False
+        con_marca = [i for i in candidatos if _tiene_marca(i)]
         if con_marca: candidatos = con_marca
 
     # Filtro duro de modelo
