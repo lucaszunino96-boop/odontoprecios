@@ -547,13 +547,17 @@ def scrape_con_sitemap(tienda, cache_existente=None, info_tienda=None):
                     fecha_mod = fecha_mod.replace(tzinfo=timezone.utc)
                 dias = (hoy - fecha_mod).days
                 if dias > UMBRAL_DIAS:
-                    # Producto no cambió — reutilizar pero actualizar timestamp
-                    prod = dict(cache_url[url])
-                    prod["actualizado"] = datetime.now().strftime("%d/%m/%Y %H:%M")
-                    productos_reutilizados.append(prod)
-                    if info_tienda is not None:
-                        info_tienda["reutilizados_cache"] = info_tienda.get("reutilizados_cache", 0) + 1
-                    continue
+                    # Muchas tiendas no actualizan lastmod cuando cambia el precio.
+                    # Re-scrapear aleatoriamente el 15% del cache para detectar cambios.
+                    import random
+                    if random.random() > 0.15:
+                        prod = dict(cache_url[url])
+                        prod["actualizado"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                        productos_reutilizados.append(prod)
+                        if info_tienda is not None:
+                            info_tienda["reutilizados_cache"] = info_tienda.get("reutilizados_cache", 0) + 1
+                        continue
+                    # El 15% cae acá y se re-scrapea igual
             except Exception:
                 pass  # Si falla el parsing, scrapear igual
         urls_a_scrapear.append(url)
