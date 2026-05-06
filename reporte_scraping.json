@@ -1,5 +1,5 @@
 {
-  "fecha": "2026-05-05 11:06:34",
+  "fecha": "2026-05-05 22:35:33",
   "tiendas": [
     {
       "slug": "dentaltronador",
@@ -10,10 +10,10 @@
       "productos": 518,
       "estimados": 524,
       "cobertura_pct": 98.9,
-      "reutilizados_cache": 480,
+      "reutilizados_cache": 483,
       "errores": 6,
       "warnings": [],
-      "duracion_s": 8.9,
+      "duracion_s": 13.0,
       "estado": "ok"
     },
     {
@@ -22,13 +22,13 @@
       "tipo": "tiendanube",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 3520,
+      "productos": 3519,
       "estimados": 3531,
       "cobertura_pct": 99.7,
-      "reutilizados_cache": 3297,
-      "errores": 11,
+      "reutilizados_cache": 3330,
+      "errores": 12,
       "warnings": [],
-      "duracion_s": 74.9,
+      "duracion_s": 67.7,
       "estado": "ok"
     },
     {
@@ -40,10 +40,10 @@
       "productos": 1118,
       "estimados": 1168,
       "cobertura_pct": 95.7,
-      "reutilizados_cache": 1023,
+      "reutilizados_cache": 1030,
       "errores": 50,
       "warnings": [],
-      "duracion_s": 51.7,
+      "duracion_s": 49.1,
       "estado": "ok"
     },
     {
@@ -60,7 +60,7 @@
       "warnings": [
         "⚠ COBERTURA_BAJA: 243 scrapeados / ~571 estimados (42.6%)"
       ],
-      "duracion_s": 92.0,
+      "duracion_s": 93.1,
       "estado": "cobertura_baja"
     },
     {
@@ -75,7 +75,7 @@
       "reutilizados_cache": 1169,
       "errores": 49,
       "warnings": [],
-      "duracion_s": 16.0,
+      "duracion_s": 23.7,
       "estado": "ok"
     },
     {
@@ -84,13 +84,13 @@
       "tipo": "tiendanube",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 450,
+      "productos": 452,
       "estimados": 553,
-      "cobertura_pct": 81.4,
+      "cobertura_pct": 81.7,
       "reutilizados_cache": 429,
-      "errores": 103,
+      "errores": 101,
       "warnings": [],
-      "duracion_s": 32.0,
+      "duracion_s": 28.3,
       "estado": "ok"
     },
     {
@@ -105,7 +105,7 @@
       "reutilizados_cache": 543,
       "errores": 0,
       "warnings": [],
-      "duracion_s": 2.4,
+      "duracion_s": 1.4,
       "estado": "ok"
     },
     {
@@ -117,10 +117,10 @@
       "productos": 2828,
       "estimados": 3073,
       "cobertura_pct": 92.0,
-      "reutilizados_cache": 2773,
+      "reutilizados_cache": 2786,
       "errores": 245,
       "warnings": [],
-      "duracion_s": 298.0,
+      "duracion_s": 266.3,
       "estado": "ok"
     },
     {
@@ -135,7 +135,7 @@
       "reutilizados_cache": 307,
       "errores": 88,
       "warnings": [],
-      "duracion_s": 38.5,
+      "duracion_s": 37.2,
       "estado": "ok"
     },
     {
@@ -150,7 +150,7 @@
       "reutilizados_cache": 86,
       "errores": 1,
       "warnings": [],
-      "duracion_s": 0.9,
+      "duracion_s": 1.7,
       "estado": "ok"
     },
     {
@@ -165,7 +165,7 @@
       "reutilizados_cache": 93,
       "errores": 0,
       "warnings": [],
-      "duracion_s": 0.4,
+      "duracion_s": 0.8,
       "estado": "ok"
     },
     {
@@ -174,14 +174,16 @@
       "tipo": "woocommerce",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 707,
-      "estimados": 843,
-      "cobertura_pct": 83.9,
-      "reutilizados_cache": 479,
-      "errores": 136,
-      "warnings": [],
-      "duracion_s": 287.8,
-      "estado": "ok"
+      "productos": 498,
+      "estimados": 849,
+      "cobertura_pct": 58.7,
+      "reutilizados_cache": 391,
+      "errores": 351,
+      "warnings": [
+        "⚠ COBERTURA_BAJA: 498 scrapeados / ~849 estimados (58.7%)"
+      ],
+      "duracion_s": 2865.7,
+      "estado": "cobertura_baja"
     },
     {
       "slug": "dentalshop",
@@ -192,10 +194,10 @@
       "productos": 207,
       "estimados": 226,
       "cobertura_pct": 91.6,
-      "reutilizados_cache": 202,
+      "reutilizados_cache": 207,
       "errores": 19,
       "warnings": [],
-      "duracion_s": 8.4,
+      "duracion_s": 9.3,
       "estado": "ok"
     },
     {
@@ -204,15 +206,15 @@
       "tipo": "woocommerce",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 940,
+      "productos": 944,
       "estimados": 1523,
-      "cobertura_pct": 61.7,
+      "cobertura_pct": 62.0,
       "reutilizados_cache": 0,
-      "errores": 583,
+      "errores": 579,
       "warnings": [
-        "⚠ COBERTURA_BAJA: 940 scrapeados / ~1523 estimados (61.7%)"
+        "⚠ COBERTURA_BAJA: 944 scrapeados / ~1523 estimados (62.0%)"
       ],
-      "duracion_s": 431.3,
+      "duracion_s": 490.1,
       "estado": "cobertura_baja"
     },
     {
@@ -221,15 +223,15 @@
       "tipo": "woocommerce",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 750,
-      "estimados": 3465,
-      "cobertura_pct": 21.6,
-      "reutilizados_cache": 326,
-      "errores": 2715,
+      "productos": 741,
+      "estimados": 3464,
+      "cobertura_pct": 21.4,
+      "reutilizados_cache": 335,
+      "errores": 2723,
       "warnings": [
-        "⚠ COBERTURA_BAJA: 750 scrapeados / ~3465 estimados (21.6%)"
+        "⚠ COBERTURA_BAJA: 741 scrapeados / ~3464 estimados (21.4%)"
       ],
-      "duracion_s": 1048.6,
+      "duracion_s": 1155.6,
       "estado": "cobertura_baja"
     },
     {
@@ -244,7 +246,7 @@
       "reutilizados_cache": 306,
       "errores": 38,
       "warnings": [],
-      "duracion_s": 23.8,
+      "duracion_s": 22.6,
       "estado": "ok"
     },
     {
@@ -253,13 +255,13 @@
       "tipo": "woocommerce",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 402,
-      "estimados": 424,
+      "productos": 404,
+      "estimados": 426,
       "cobertura_pct": 94.8,
-      "reutilizados_cache": 402,
+      "reutilizados_cache": 399,
       "errores": 22,
       "warnings": [],
-      "duracion_s": 13.6,
+      "duracion_s": 23.9,
       "estado": "ok"
     },
     {
@@ -271,10 +273,10 @@
       "productos": 336,
       "estimados": 405,
       "cobertura_pct": 83.0,
-      "reutilizados_cache": 321,
+      "reutilizados_cache": 324,
       "errores": 69,
       "warnings": [],
-      "duracion_s": 47.2,
+      "duracion_s": 61.4,
       "estado": "ok"
     },
     {
@@ -283,13 +285,13 @@
       "tipo": "woocommerce",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 450,
+      "productos": 447,
       "estimados": 541,
-      "cobertura_pct": 83.2,
-      "reutilizados_cache": 57,
-      "errores": 91,
+      "cobertura_pct": 82.6,
+      "reutilizados_cache": 58,
+      "errores": 94,
       "warnings": [],
-      "duracion_s": 310.1,
+      "duracion_s": 325.9,
       "estado": "ok"
     },
     {
@@ -298,15 +300,15 @@
       "tipo": "prestashop",
       "metodo": "html_categorias",
       "metodo_estimacion": "prestashop_count",
-      "productos": 175,
+      "productos": 174,
       "estimados": 252,
-      "cobertura_pct": 69.4,
+      "cobertura_pct": 69.0,
       "reutilizados_cache": 0,
       "errores": 0,
       "warnings": [
-        "⚠ COBERTURA_BAJA: 175 scrapeados / ~252 estimados (69.4%)"
+        "⚠ COBERTURA_BAJA: 174 scrapeados / ~252 estimados (69.0%)"
       ],
-      "duracion_s": 196.6,
+      "duracion_s": 204.2,
       "estado": "cobertura_baja"
     },
     {
@@ -315,13 +317,13 @@
       "tipo": "woocommerce",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 327,
-      "estimados": 355,
+      "productos": 328,
+      "estimados": 356,
       "cobertura_pct": 92.1,
-      "reutilizados_cache": 305,
+      "reutilizados_cache": 304,
       "errores": 28,
       "warnings": [],
-      "duracion_s": 99.8,
+      "duracion_s": 55.2,
       "estado": "ok"
     },
     {
@@ -336,7 +338,7 @@
       "reutilizados_cache": 0,
       "errores": 0,
       "warnings": [],
-      "duracion_s": 348.6,
+      "duracion_s": 289.2,
       "estado": "ok"
     },
     {
@@ -345,15 +347,15 @@
       "tipo": "dentalab",
       "metodo": "html_categorias_custom",
       "metodo_estimacion": "items_x_cats_estimado",
-      "productos": 964,
+      "productos": 942,
       "estimados": 4088,
-      "cobertura_pct": 23.6,
+      "cobertura_pct": 23.0,
       "reutilizados_cache": 0,
       "errores": 0,
       "warnings": [
-        "⚠ COBERTURA_BAJA: 964 scrapeados / ~4088 estimados (23.6%)"
+        "⚠ COBERTURA_BAJA: 942 scrapeados / ~4088 estimados (23.0%)"
       ],
-      "duracion_s": 938.0,
+      "duracion_s": 1030.6,
       "estado": "cobertura_baja"
     },
     {
@@ -361,16 +363,16 @@
       "nombre": "Odontostore",
       "tipo": "odontostore",
       "metodo": "html_categorias_custom",
-      "metodo_estimacion": "cats_count_estimado",
-      "productos": 49,
-      "estimados": 460,
-      "cobertura_pct": 10.7,
+      "metodo_estimacion": "items_x_cats_estimado",
+      "productos": 52,
+      "estimados": 2231,
+      "cobertura_pct": 2.3,
       "reutilizados_cache": 0,
       "errores": 0,
       "warnings": [
-        "⚠ COBERTURA_BAJA: 49 scrapeados / ~460 estimados (10.7%)"
+        "⚠ COBERTURA_BAJA: 52 scrapeados / ~2231 estimados (2.3%)"
       ],
-      "duracion_s": 176.0,
+      "duracion_s": 201.2,
       "estado": "cobertura_baja"
     },
     {
@@ -378,24 +380,25 @@
       "nombre": "Cedent",
       "tipo": "cedent",
       "metodo": "html_categorias_odoo",
-      "metodo_estimacion": "items_x_cats_estimado",
+      "metodo_estimacion": "cats_count_estimado",
       "productos": 0,
-      "estimados": 8200,
+      "estimados": 1000,
       "cobertura_pct": 0.0,
       "reutilizados_cache": 0,
       "errores": 0,
       "warnings": [
         "⚠ 0 productos — verificar manualmente"
       ],
-      "duracion_s": 419.4,
+      "duracion_s": 490.1,
       "estado": "sin_productos"
     }
   ],
-  "total_productos": 16675,
+  "total_productos": 16442,
   "total_errores": 1,
-  "duracion_total_s": 4964.9,
+  "duracion_total_s": 7807.5,
   "tiendas_cobertura_baja": [
     "Olympic Dental",
+    "Grimberg Dentales",
     "Dento",
     "Dental Medrano",
     "Odontologia Mauri",
