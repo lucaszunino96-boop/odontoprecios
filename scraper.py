@@ -920,6 +920,61 @@ def scrape_odontostore(tienda):
     return productos
 
 
+
+def _extraer_producto_cedent(card, tienda, urls_vistas):
+    """
+    Extrae nombre, precio y URL de una card de producto de Cedent (Odoo).
+    Selectores confirmados en vivo 06/05/2026.
+    """
+    try:
+        # URL del producto
+        link = card.select_one("a.oe_product_image_link, a[href*='/shop/'], h5 a, h6 a, .o_wsale_products_item_title a")
+        if not link:
+            return None
+        href = link.get("href", "")
+        if not href:
+            return None
+        if not href.startswith("http"):
+            href = tienda["url_base"] + href
+        href = href.split("?")[0]
+        if href in urls_vistas:
+            return None
+        urls_vistas.add(href)
+
+        # Nombre
+        nombre_el = card.select_one(".o_wsale_products_item_title h5, .o_wsale_products_item_title h6, .o_wsale_products_item_title a, h5, h6")
+        nombre = nombre_el.get_text(strip=True) if nombre_el else ""
+        if not nombre or len(nombre) < 3:
+            nombre = link.get_text(strip=True)
+        if not nombre or len(nombre) < 3:
+            return None
+
+        # Precio — .oe_currency_value contiene el número, puede haber varios (precio tachado + precio actual)
+        precios_els = card.select(".oe_currency_value")
+        precio = 0
+        for el in precios_els:
+            p = limpiar_precio(el.get_text(strip=True))
+            if p > 0:
+                precio = p
+                break  # Tomar el primero válido
+
+        if precio <= 0:
+            return None
+
+        # Imagen (opcional)
+        imagen = ""
+        img = card.select_one("img.oe_product_image_img, img[src*='/web/image/']")
+        if img:
+            src = img.get("src", "") or img.get("data-src", "")
+            if src:
+                imagen = src if src.startswith("http") else tienda["url_base"] + src
+
+        return hacer_producto(tienda, nombre, precio, href, imagen)
+
+    except Exception:
+        return None
+
+
 def scrape_cedent(tienda):
     """
     Scraper para Cedent (Odoo eCommerce).
