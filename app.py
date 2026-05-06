@@ -346,11 +346,23 @@ def _token_presente_en(tok, nombre_norm, nombre_junto):
 
 
 def _get_attrs(producto: dict) -> dict:
-    """Usa attrs pre-calculados si existen, sino cataloga en tiempo real."""
+    """
+    Usa attrs pre-calculados si existen y son confiables.
+    Recataloga en tiempo real si el producto es una copia/símil
+    (los attrs viejos pueden tener marca incorrecta para estos casos).
+    """
+    nombre = producto.get("nombre", "")
+    # Si el nombre indica que es una copia, recatalogar siempre
+    import re as _re2
+    _nombre_norm = nombre.lower()
+    import unicodedata as _ud
+    _nombre_norm = "".join(c for c in _ud.normalize("NFD", _nombre_norm) if _ud.category(c) != "Mn")
+    if _re2.search(r"\b(simil|similar|tipo|alternativ|generico)\b", _nombre_norm):
+        return catalogar(nombre)
     attrs = producto.get("attrs")
     if attrs and isinstance(attrs, dict) and len(attrs) > 0:
         return attrs
-    return catalogar(producto.get("nombre", ""))
+    return catalogar(nombre)
 
 def score_relevancia(q_tokens, q_attrs, nombre_norm, prod_attrs):
     score = 0
