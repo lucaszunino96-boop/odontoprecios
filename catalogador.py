@@ -218,7 +218,9 @@ def catalogar(nombre_crudo: str) -> dict:
             attrs["marca"] = marca
             break
     # Si no detectó marca, inferir desde modelo/línea conocida
-    if not attrs.get("marca"):
+    # NO inferir si el producto dice "simil", "similar", "tipo", "estilo" — son copias
+    _es_copia = bool(re.search(r"\b(simil|similar|tipo|estilo|alternativ|generico|equivalente|reforzado para)\b", t))
+    if not attrs.get("marca") and not _es_copia:
         for modelo_key, marca_implicita in _MODELO_MARCA.items():
             if re.search(r"\b" + re.escape(modelo_key) + r"\b", t):
                 attrs["marca"] = marca_implicita
