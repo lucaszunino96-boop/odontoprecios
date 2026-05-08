@@ -766,7 +766,7 @@ def scrape_dentalab(tienda):
                 prod_links = soup.select(f"a[href*='/productos/{cat_nombre}/']")
                 prod_links = [a for a in prod_links
                              if a.get("href","").endswith(".html")
-                             and not any(x in a.get("href","") for x in ["dirDesc","por,","ordenar"])]
+                             and not any(x in a.get("href","") for x in ["dirDesc","por,","ordenar","results,"])]
                 if not prod_links and page > 0: break
                 if not prod_links: break
                 encontro_nuevos = False
@@ -812,7 +812,8 @@ def _scrape_producto_dentalab(url, tienda):
         if nombre and precio and precio > 50:
             return hacer_producto(tienda, nombre, precio, url, imagen)
         return None
-    except Exception:
+    except Exception as e:
+        print(f"  ! dentalab scrape error {url[:80]}: {e}")
         return None
 
 # ─── MOTOR ODONTOSTORE ────────────────────────────────────────────────────────
