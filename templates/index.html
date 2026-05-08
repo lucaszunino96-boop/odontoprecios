@@ -107,6 +107,14 @@ input,textarea{font-family:var(--font-b)}
 .badge-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.7);flex-shrink:0}
 .prod-nombre{font-size:13.5px;font-weight:600;color:var(--text);line-height:1.35;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prod-meta{font-size:11.5px;color:var(--text3);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.prod-attrs{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0 1px}
+.attr-chip{display:inline-flex;align-items:center;padding:1px 6px;border-radius:10px;font-size:10.5px;font-weight:600;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.attr-chip.tipo{background:#e0f2fe;color:#0369a1;border-color:#bae6fd}
+.attr-chip.marca{background:#f0fdf4;color:#15803d;border-color:#bbf7d0}
+.attr-chip.modelo{background:#fef3c7;color:#92400e;border-color:#fde68a}
+.attr-chip.tono{background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe}
+.attr-chip.droga{background:#fff1f2;color:#be123c;border-color:#fecdd3}
+.attr-chip.imitacion{background:#fee2e2;color:#991b1b;border-color:#fca5a5;font-style:italic}
 .prod-historial{font-size:11px;font-weight:600}
 .hist-sube{color:var(--danger)}
 .hist-baja{color:#059669}
@@ -739,6 +747,32 @@ function ocultarAutocomplete() {
   document.getElementById('ac-list').classList.remove('open');
 }
 
+function renderAttrs(p) {
+  const a = p.attrs || {};
+  if (!a || Object.keys(a).length === 0) return '';
+  const ETIQUETAS = {
+    tipo:     {label: v => v,                      cls: 'tipo'},
+    marca:    {label: v => v.toUpperCase(),         cls: 'marca'},
+    modelo:   {label: v => v.toUpperCase(),         cls: 'modelo'},
+    tono:     {label: v => 'Tono ' + v.toUpperCase(), cls: 'tono'},
+    subtipo:  {label: v => v,                      cls: 'tipo'},
+    droga:    {label: v => v,                      cls: 'droga'},
+    material: {label: v => v,                      cls: 'tipo'},
+    talle:    {label: v => 'Talle ' + v,           cls: 'tono'},
+    cantidad: {label: v => 'x' + v,               cls: 'modelo'},
+  };
+  const nombre_lc = (p.nombre || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const esImitacion = /\b(simil|similar|tipo|alternativ|generico|copia|reforzado para)\b/.test(nombre_lc);
+  let chips = '';
+  if (esImitacion) chips += `<span class="attr-chip imitacion">⚠ imitación</span>`;
+  for (const [key, cfg] of Object.entries(ETIQUETAS)) {
+    if (a[key] !== undefined && a[key] !== null) {
+      chips += `<span class="attr-chip ${cfg.cls}">${esc(cfg.label(String(a[key])))}</span>`;
+    }
+  }
+  return chips ? `<div class="prod-attrs">${chips}</div>` : '';
+}
+
 // ── RENDER PRODUCTOS ──
 function renderProductos(prods) {
   const ids = new Set(lista.map(i => i.id));
@@ -754,6 +788,7 @@ function renderProductos(prods) {
       <div class="prod-info">
         <div class="tienda-badge" style="background:${p.tienda_color}"><div class="badge-dot"></div>${esc(p.tienda_nombre)}</div>
         <div class="prod-nombre" title="${esc(p.nombre)}">${esc(p.nombre)}</div>
+        ${renderAttrs(p)}
         <div class="prod-meta">
           <span>Actualizado: ${esc(p.actualizado)}</span>
           <span id="hist-${p.id}" class="prod-historial"></span>
