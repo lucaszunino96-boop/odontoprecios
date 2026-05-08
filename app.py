@@ -29,10 +29,10 @@ _estado = {
     "productos": None,
     "nombres_norm": None,
     "historial": None,
-    "ultima_carga": None,       # datetime de la última carga exitosa
-    "origen": None,             # "github" | "cache_local" | "disco"
-    "hash_actual": None,        # hash de productos del scraper
-    "fecha_run": None,          # fecha_run del scraper (del campo meta)
+    "ultima_carga": None,
+    "origen": None,
+    "hash_actual": None,
+    "fecha_run": None,
     "total": 0,
     "error_ultimo": None,
     "refresh_en_curso": False,
@@ -44,7 +44,6 @@ _file_lock = threading.Lock()
 # ─── CARGA DE PRODUCTOS DESDE GITHUB ─────────────────────────────────────────
 
 def _descargar_json_github():
-    """Descarga productos.json desde GitHub Raw. Retorna (bytes, etag) o lanza excepción."""
     req = urllib.request.Request(
         GITHUB_RAW_URL,
         headers={"User-Agent": "OdontoPrecio/1.0", "Cache-Control": "no-cache"}
@@ -58,18 +57,12 @@ def _hash_datos(data: bytes) -> str:
     return hashlib.md5(data).hexdigest()[:16]
 
 def _cargar_desde_bytes(data: bytes) -> tuple:
-    """
-    Soporta dos formatos:
-    - Nuevo: {"productos": [...], "meta": {...}}
-    - Viejo: [...] (compatibilidad)
-    Retorna (lista_productos, meta_dict)
-    """
     parsed = json.loads(data)
     if isinstance(parsed, dict) and "productos" in parsed:
         productos = parsed["productos"]
         meta = parsed.get("meta", {})
     else:
-        productos = parsed  # formato viejo: lista directa
+        productos = parsed
         meta = {}
     filtrados = [
         p for p in productos
@@ -79,13 +72,6 @@ def _cargar_desde_bytes(data: bytes) -> tuple:
     return filtrados, meta
 
 def cargar_productos_inicial():
-    """
-    Carga productos al iniciar la app.
-    Orden de prioridad:
-    1. GitHub Raw (fresco)
-    2. Cache local productos_cache.json (si GitHub falla)
-    3. productos.json del disco (fallback final)
-    """
     from datetime import datetime
 
     # Intento 1: GitHub Raw
@@ -96,7 +82,6 @@ def cargar_productos_inicial():
         h = meta.get("hash_productos") or _hash_datos(data)
         fecha_run = meta.get("fecha_run", "")
 
-        # Guardar cache local
         with open(CACHE_LOCAL, "wb") as f:
             f.write(data)
 
@@ -143,11 +128,10 @@ def cargar_productos_inicial():
         except Exception as e:
             print(f"  ⚠ Cache local falló: {e}")
 
-    # Intento 3: Disco (productos.json del deploy)
+    # Intento 3: Disco
     try:
         print("  Usando productos.json del disco...")
         productos_disco = cargar_productos()
-        # cargar_productos() ya devuelve lista (maneja formato nuevo y viejo)
         if isinstance(productos_disco, dict) and "productos" in productos_disco:
             productos_disco = productos_disco["productos"]
         elif not isinstance(productos_disco, list):
@@ -172,11 +156,6 @@ def cargar_productos_inicial():
 
 
 def verificar_actualizacion():
-    """
-    Corre en background cada 15 minutos.
-    Compara el hash del JSON en GitHub con el actual.
-    Si cambió, recarga.
-    """
     from datetime import datetime
 
     while True:
@@ -197,13 +176,11 @@ def verificar_actualizacion():
                 continue
 
             fecha_run = meta.get("fecha_run", "")
-            print(f"  Hash cambió {_estado.get('hash_actual')} → {h}, recargando (run: {fecha_run})...")
+            print(f"  Hash cambió {_estado.get('hash_actual')} → {h}, recargando...")
 
-            # Guardar cache
             with open(CACHE_LOCAL, "wb") as f:
                 f.write(data)
 
-            # Actualizar estado
             with _data_lock:
                 _estado["productos"] = productos
                 _estado["nombres_norm"] = None
@@ -214,7 +191,6 @@ def verificar_actualizacion():
                 _estado["error_ultimo"] = None
                 _estado["fecha_run"] = fecha_run
 
-            # Reconstruir índice
             construir_indice(productos)
             print(f"  ✅ Recargado: {len(productos)} productos")
 
@@ -241,10 +217,15 @@ from collections import defaultdict
 STOPWORDS = {"de","el","la","lo","los","las","en","con","por","para","y","o","e","un","una","x","a"}
 MIN_FUZZY = 72
 
+# Palabras que identifican imitaciones/copias — penalización fuerte en scoring
+_RE_IMITACION = re.compile(
+    r'\b(simil|s[ií]mil|similar|tipo|alternativ|generico|gen[eé]rico|equivalente|copia|reforzado\s+para)\b'
+)
+
 def normalizar(texto):
     t = unicodedata.normalize("NFD", texto.lower())
     t = "".join(c for c in t if unicodedata.category(c) != "Mn")
-    t = re.sub(r"[-./()%,;:!?\\[\\]]", " ", t)
+    t = re.sub(r"[-./()%,;:!?\[\]]", " ", t)
     return re.sub(r" +", " ", t).strip()
 
 def stemming_basico(token):
@@ -276,7 +257,6 @@ def construir_indice(productos):
     indice = defaultdict(set)
     nombres_norm = []
 
-    # Mapa de sinónimos
     sin_map = {}
     for grupo in SINONIMOS_GRUPOS:
         for termino in grupo:
@@ -352,23 +332,30 @@ def _get_attrs(producto: dict) -> dict:
     (los attrs viejos pueden tener marca incorrecta para estos casos).
     """
     nombre = producto.get("nombre", "")
-    # Si el nombre indica que es una copia, recatalogar siempre
-    import re as _re2
-    _nombre_norm = nombre.lower()
-    import unicodedata as _ud
-    _nombre_norm = "".join(c for c in _ud.normalize("NFD", _nombre_norm) if _ud.category(c) != "Mn")
-    if _re2.search(r"\b(simil|similar|tipo|alternativ|generico)\b", _nombre_norm):
+    nombre_norm_local = "".join(
+        c for c in unicodedata.normalize("NFD", nombre.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+    if _RE_IMITACION.search(nombre_norm_local):
         return catalogar(nombre)
     attrs = producto.get("attrs")
     if attrs and isinstance(attrs, dict) and len(attrs) > 0:
         return attrs
     return catalogar(nombre)
 
+
 def score_relevancia(q_tokens, q_attrs, nombre_norm, prod_attrs):
     score = 0
     nombre_junto = nombre_norm.replace(" ","")
     n_esp = len(q_tokens["especificos"])
     presentes, ausentes = [], []
+
+    # ── FIX 1: penalizar imitaciones ──────────────────────────────────────────
+    # Si el nombre del producto contiene palabras de copia/símil, penalización
+    # fuerte antes de cualquier scoring. Garantiza que nunca rankeen por encima
+    # de originales cuando hay tokens específicos (marca/modelo) presentes.
+    if _RE_IMITACION.search(nombre_norm):
+        score -= 200
 
     for tok in q_tokens["especificos"]:
         if _token_presente_en(tok, nombre_norm, nombre_junto):
@@ -439,7 +426,9 @@ def cargar_historial():
     if os.path.exists(HIST_PATH):
         try:
             with open(HIST_PATH, encoding="utf-8") as f: return json.load(f)
-        except: return {}
+        except Exception as e:
+            print(f"  ⚠ cargar_historial error: {e}")
+            return {}
     return {}
 
 def guardar_historial(productos_nuevos):
@@ -452,9 +441,12 @@ def guardar_historial(productos_nuevos):
             if pid not in hist: hist[pid] = []
             if not hist[pid] or hist[pid][-1]["precio"] != precio:
                 hist[pid].append({"fecha": hoy, "precio": precio})
-                if len(hist[pid]) > 90: hist[pid] = hist[pid][-90:]
-        with open(HIST_PATH, "w", encoding="utf-8") as f:
-            json.dump(hist, f, ensure_ascii=False)
+            if len(hist[pid]) > 90: hist[pid] = hist[pid][-90:]
+        try:
+            with open(HIST_PATH, "w", encoding="utf-8") as f:
+                json.dump(hist, f, ensure_ascii=False)
+        except Exception as e:
+            print(f"  ⚠ guardar_historial error: {e}")
         return hist
 
 _estado["historial"] = None
@@ -475,7 +467,9 @@ def guardar_reporte(producto_id, nombre, tienda, precio_actual, comentario, ip):
         if os.path.exists(REPORTES_PATH):
             try:
                 with open(REPORTES_PATH, encoding="utf-8") as f: reportes = json.load(f)
-            except: reportes = []
+            except Exception as e:
+                print(f"  ⚠ guardar_reporte lectura error: {e}")
+                reportes = []
         reportes.append({
             "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "producto_id": producto_id, "nombre": nombre, "tienda": tienda,
@@ -483,8 +477,11 @@ def guardar_reporte(producto_id, nombre, tienda, precio_actual, comentario, ip):
             "ip": ip[:20] if ip else ""
         })
         reportes = reportes[-500:]
-        with open(REPORTES_PATH, "w", encoding="utf-8") as f:
-            json.dump(reportes, f, ensure_ascii=False, indent=2)
+        try:
+            with open(REPORTES_PATH, "w", encoding="utf-8") as f:
+                json.dump(reportes, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"  ⚠ guardar_reporte escritura error: {e}")
 
 
 # ─── RUTAS ────────────────────────────────────────────────────────────────────
@@ -500,7 +497,7 @@ def buscar():
     if len(q) > 100:
         return jsonify({"error": "Query demasiado larga"}), 400
     try: offset = max(0, int(request.args.get("offset", 0)))
-    except: offset = 0
+    except (ValueError, TypeError): offset = 0
     limit = 30
 
     q_norm = normalizar(q)
@@ -517,17 +514,14 @@ def buscar():
     candidatos = list(candidatos_idx) if candidatos_idx is not None else list(range(len(productos)))
 
     # Filtro duro de marca
-    # Si el query no tiene marca explícita, inferirla del modelo (p60→3m, protaper→dentsply, etc.)
     marcas_q = [t for t in tokens_idx if t in _MARCAS]
     if not marcas_q and q_attrs.get("marca"):
         marcas_q = [q_attrs["marca"]]
     if marcas_q:
         def _tiene_marca(i):
             nombre = nombres_norm[i]
-            # Buscar en el nombre
             if any(m in nombre or m in nombre.replace(" ","") for m in marcas_q):
                 return True
-            # Buscar en attrs pre-calculados
             p_attrs = productos[i].get("attrs") or {}
             p_marca = p_attrs.get("marca","")
             if any(m == p_marca for m in marcas_q):
@@ -566,7 +560,8 @@ def buscar():
 
     total = len(todos)
     aviso = None
-    if not tiene_especificos and total > 200:
+    # ── FIX 4: threshold bajado de 200 a 50 ───────────────────────────────────
+    if not tiene_especificos and total > 50:
         aviso = "Agregá marca, modelo o medida para resultados más precisos"
     sugerencia = None
     if not todos:
@@ -635,7 +630,8 @@ def historial_producto(producto_id):
                     precio_30d = e["precio"]
                     if precio_30d > 0: variacion = round(((actual-precio_30d)/precio_30d)*100,1)
                     break
-            except: pass
+            except Exception as e_hist:
+                print(f"  ⚠ historial parse error: {e_hist}")
     return jsonify({"entradas":entradas,"precio_30d":precio_30d,"variacion_pct":variacion})
 
 @app.route("/api/reporte", methods=["POST"])
@@ -645,7 +641,7 @@ def reporte():
     nombre = str(data.get("nombre",""))[:200]
     tienda = str(data.get("tienda",""))[:100]
     try: precio_actual = float(data.get("precio",0))
-    except: precio_actual = 0.0
+    except (ValueError, TypeError): precio_actual = 0.0
     comentario = str(data.get("comentario",""))[:200]
     if not producto_id or not nombre: return jsonify({"error":"Datos incompletos"}),400
     guardar_reporte(producto_id, nombre, tienda, precio_actual, comentario, request.remote_addr or "")
@@ -655,7 +651,11 @@ def reporte():
 def reporte_scraping():
     rp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reporte_scraping.json")
     if not os.path.exists(rp): return jsonify({"error":"No hay reporte disponible aún."}),404
-    with open(rp, encoding="utf-8") as f: return jsonify(json.load(f))
+    try:
+        with open(rp, encoding="utf-8") as f: return jsonify(json.load(f))
+    except Exception as e:
+        print(f"  ⚠ reporte_scraping error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/stats")
 def stats():
@@ -672,11 +672,14 @@ def actualizar():
     if not ADMIN_CLAVE or clave != ADMIN_CLAVE:
         return jsonify({"error":"No autorizado"}),403
     def _run():
-        nuevos = correr_scraper()
-        with _data_lock:
-            _estado["productos"] = [p for p in nuevos if len(p.get("nombre","").strip())>=8 and p.get("precio",0)>0]
-            _estado["nombres_norm"] = None
-        construir_indice(_estado["productos"])
+        try:
+            nuevos = correr_scraper()
+            with _data_lock:
+                _estado["productos"] = [p for p in nuevos if len(p.get("nombre","").strip())>=8 and p.get("precio",0)>0]
+                _estado["nombres_norm"] = None
+            construir_indice(_estado["productos"])
+        except Exception as e:
+            print(f"  ❌ Error en actualización manual: {e}")
     threading.Thread(target=_run, daemon=True).start()
     return jsonify({"ok":True,"mensaje":"Actualizando en segundo plano..."})
 
@@ -695,8 +698,10 @@ def ver_reportes():
         for r in reversed(reportes):
             w.writerow([r.get("fecha",""),r.get("tienda",""),r.get("nombre",""),r.get("precio_actual",""),r.get("comentario","")])
         return Response("\ufeff"+output.getvalue(), mimetype="text/csv",
-                       headers={"Content-Disposition":"attachment; filename=reportes.csv"})
-    except Exception as e: return f"Error: {e}",500
+                        headers={"Content-Disposition":"attachment; filename=reportes.csv"})
+    except Exception as e:
+        print(f"  ⚠ ver_reportes error: {e}")
+        return f"Error: {e}",500
 
 @app.route("/api/compra-inteligente", methods=["POST"])
 def compra_inteligente():
@@ -718,7 +723,7 @@ def compra_inteligente():
         q_attrs = catalogar(linea)
         q_tokens = clasificar_tokens(q_norm)
 
-        # OR de tokens
+        # OR de tokens (mayor recall que /api/buscar que usa AND)
         tokens_ord = sorted(tokens, key=lambda t: (-len(t), 0 if _re.search(r'[0-9]',t) else 1))
         cands = set()
         for t in tokens_ord:
@@ -765,6 +770,9 @@ def compra_inteligente():
             ausentes = sum(1 for t in q_t_imp if t not in p_norm and t not in p_junto)
             base_adj = max(0, base - ausentes*8)
             s = score_relevancia(q_tokens, q_attrs, p_norm, p_attrs)
+            # ── FIX 6: si score_relevancia excluye el producto, no promediar con base ──
+            if s <= -100:
+                continue
             final = max(0, min(100, (base_adj + max(0,s)) // 2))
             if base >= 45 and final >= 20: scored.append((final, base, p))
 
