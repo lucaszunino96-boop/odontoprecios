@@ -1,5 +1,5 @@
 {
-  "fecha": "2026-09-13 14:13:42",
+  "fecha": "2026-09-14 16:16:46",
   "tiendas": [
     {
       "slug": "dentaltronador",
@@ -7,13 +7,13 @@
       "tipo": "tiendanube",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 1718,
+      "productos": 1717,
       "estimados": 1757,
-      "cobertura_pct": 97.8,
-      "reutilizados_cache": 1450,
-      "errores": 39,
+      "cobertura_pct": 97.7,
+      "reutilizados_cache": 1461,
+      "errores": 40,
       "warnings": [],
-      "duracion_s": 100.1,
+      "duracion_s": 75.3,
       "estado": "ok"
     },
     {
@@ -22,13 +22,13 @@
       "tipo": "tiendanube",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 3615,
+      "productos": 3616,
       "estimados": 3628,
-      "cobertura_pct": 99.6,
-      "reutilizados_cache": 2967,
-      "errores": 13,
+      "cobertura_pct": 99.7,
+      "reutilizados_cache": 3017,
+      "errores": 12,
       "warnings": [],
-      "duracion_s": 248.2,
+      "duracion_s": 201.8,
       "estado": "ok"
     },
     {
@@ -37,13 +37,13 @@
       "tipo": "tiendanube",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 1196,
+      "productos": 1195,
       "estimados": 1225,
       "cobertura_pct": 97.6,
-      "reutilizados_cache": 952,
-      "errores": 29,
+      "reutilizados_cache": 982,
+      "errores": 30,
       "warnings": [],
-      "duracion_s": 116.7,
+      "duracion_s": 96.6,
       "estado": "ok"
     },
     {
@@ -55,12 +55,12 @@
       "productos": 242,
       "estimados": 591,
       "cobertura_pct": 40.9,
-      "reutilizados_cache": 205,
+      "reutilizados_cache": 211,
       "errores": 349,
       "warnings": [
         "⚠ COBERTURA_BAJA: 242 scrapeados / ~591 estimados (40.9%)"
       ],
-      "duracion_s": 128.7,
+      "duracion_s": 108.5,
       "estado": "cobertura_baja"
     },
     {
@@ -72,10 +72,10 @@
       "productos": 1159,
       "estimados": 1201,
       "cobertura_pct": 96.5,
-      "reutilizados_cache": 997,
+      "reutilizados_cache": 993,
       "errores": 42,
       "warnings": [],
-      "duracion_s": 51.2,
+      "duracion_s": 50.1,
       "estado": "ok"
     },
     {
@@ -84,13 +84,13 @@
       "tipo": "tiendanube",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 478,
+      "productos": 477,
       "estimados": 551,
-      "cobertura_pct": 86.8,
-      "reutilizados_cache": 403,
-      "errores": 73,
+      "cobertura_pct": 86.6,
+      "reutilizados_cache": 396,
+      "errores": 74,
       "warnings": [],
-      "duracion_s": 38.6,
+      "duracion_s": 35.2,
       "estado": "ok"
     },
     {
@@ -102,10 +102,10 @@
       "productos": 557,
       "estimados": 557,
       "cobertura_pct": 100.0,
-      "reutilizados_cache": 467,
+      "reutilizados_cache": 463,
       "errores": 0,
       "warnings": [],
-      "duracion_s": 21.3,
+      "duracion_s": 21.6,
       "estado": "ok"
     },
     {
@@ -114,13 +114,13 @@
       "tipo": "tiendanube",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 3156,
+      "productos": 3162,
       "estimados": 3367,
-      "cobertura_pct": 93.7,
-      "reutilizados_cache": 2656,
-      "errores": 211,
+      "cobertura_pct": 93.9,
+      "reutilizados_cache": 2611,
+      "errores": 205,
       "warnings": [],
-      "duracion_s": 754.4,
+      "duracion_s": 702.1,
       "estado": "ok"
     },
     {
@@ -132,10 +132,10 @@
       "productos": 334,
       "estimados": 422,
       "cobertura_pct": 79.1,
-      "reutilizados_cache": 281,
+      "reutilizados_cache": 285,
       "errores": 88,
       "warnings": [],
-      "duracion_s": 53.9,
+      "duracion_s": 49.4,
       "estado": "ok"
     },
     {
@@ -152,7 +152,7 @@
       "warnings": [
         "⚠ 0 productos — verificar manualmente"
       ],
-      "duracion_s": 0.9,
+      "duracion_s": 0.6,
       "estado": "sin_productos"
     },
     {
@@ -164,10 +164,10 @@
       "productos": 93,
       "estimados": 93,
       "cobertura_pct": 100.0,
-      "reutilizados_cache": 78,
+      "reutilizados_cache": 79,
       "errores": 0,
       "warnings": [],
-      "duracion_s": 11.1,
+      "duracion_s": 3.0,
       "estado": "ok"
     },
     {
@@ -176,13 +176,13 @@
       "tipo": "woocommerce",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 777,
-      "estimados": 794,
+      "productos": 779,
+      "estimados": 796,
       "cobertura_pct": 97.9,
-      "reutilizados_cache": 452,
+      "reutilizados_cache": 551,
       "errores": 17,
       "warnings": [],
-      "duracion_s": 68.1,
+      "duracion_s": 49.7,
       "estado": "ok"
     },
     {
@@ -191,16 +191,14 @@
       "tipo": "woocommerce",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 0,
-      "estimados": 0,
-      "cobertura_pct": 0.0,
+      "productos": 185,
+      "estimados": 228,
+      "cobertura_pct": 81.1,
       "reutilizados_cache": 0,
-      "errores": 0,
-      "warnings": [
-        "⚠ 0 productos — verificar manualmente"
-      ],
-      "duracion_s": 33.2,
-      "estado": "sin_productos"
+      "errores": 43,
+      "warnings": [],
+      "duracion_s": 66.6,
+      "estado": "ok"
     },
     {
       "slug": "dento",
@@ -208,15 +206,15 @@
       "tipo": "woocommerce",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 1000,
+      "productos": 1001,
       "estimados": 1577,
-      "cobertura_pct": 63.4,
+      "cobertura_pct": 63.5,
       "reutilizados_cache": 0,
-      "errores": 577,
+      "errores": 576,
       "warnings": [
-        "⚠ COBERTURA_BAJA: 1000 scrapeados / ~1577 estimados (63.4%)"
+        "⚠ COBERTURA_BAJA: 1001 scrapeados / ~1577 estimados (63.5%)"
       ],
-      "duracion_s": 594.0,
+      "duracion_s": 680.8,
       "estado": "cobertura_baja"
     },
     {
@@ -225,15 +223,15 @@
       "tipo": "woocommerce",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 913,
+      "productos": 912,
       "estimados": 3456,
       "cobertura_pct": 26.4,
-      "reutilizados_cache": 427,
-      "errores": 2543,
+      "reutilizados_cache": 120,
+      "errores": 2544,
       "warnings": [
-        "⚠ COBERTURA_BAJA: 913 scrapeados / ~3456 estimados (26.4%)"
+        "⚠ COBERTURA_BAJA: 912 scrapeados / ~3456 estimados (26.4%)"
       ],
-      "duracion_s": 965.7,
+      "duracion_s": 1320.1,
       "estado": "cobertura_baja"
     },
     {
@@ -250,7 +248,7 @@
       "warnings": [
         "⚠ 0 productos — verificar manualmente"
       ],
-      "duracion_s": 4.8,
+      "duracion_s": 3.1,
       "estado": "sin_productos"
     },
     {
@@ -259,16 +257,14 @@
       "tipo": "woocommerce",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 0,
-      "estimados": 0,
-      "cobertura_pct": 0.0,
+      "productos": 439,
+      "estimados": 452,
+      "cobertura_pct": 97.1,
       "reutilizados_cache": 0,
-      "errores": 0,
-      "warnings": [
-        "⚠ 0 productos — verificar manualmente"
-      ],
-      "duracion_s": 35.2,
-      "estado": "sin_productos"
+      "errores": 13,
+      "warnings": [],
+      "duracion_s": 169.0,
+      "estado": "ok"
     },
     {
       "slug": "bairesdental",
@@ -284,7 +280,7 @@
       "warnings": [
         "⚠ 0 productos — verificar manualmente"
       ],
-      "duracion_s": 31.1,
+      "duracion_s": 33.6,
       "estado": "sin_productos"
     },
     {
@@ -296,10 +292,10 @@
       "productos": 411,
       "estimados": 556,
       "cobertura_pct": 73.9,
-      "reutilizados_cache": 35,
+      "reutilizados_cache": 170,
       "errores": 145,
       "warnings": [],
-      "duracion_s": 469.8,
+      "duracion_s": 344.8,
       "estado": "ok"
     },
     {
@@ -316,7 +312,7 @@
       "warnings": [
         "⚠ COBERTURA_BAJA: 152 scrapeados / ~380 estimados (40.0%)"
       ],
-      "duracion_s": 820.6,
+      "duracion_s": 252.5,
       "estado": "cobertura_baja"
     },
     {
@@ -325,13 +321,13 @@
       "tipo": "woocommerce",
       "metodo": "sitemap_xml",
       "metodo_estimacion": "sitemap_count",
-      "productos": 349,
+      "productos": 350,
       "estimados": 379,
-      "cobertura_pct": 92.1,
-      "reutilizados_cache": 260,
-      "errores": 30,
+      "cobertura_pct": 92.3,
+      "reutilizados_cache": 252,
+      "errores": 29,
       "warnings": [],
-      "duracion_s": 108.6,
+      "duracion_s": 111.4,
       "estado": "ok"
     },
     {
@@ -346,7 +342,7 @@
       "reutilizados_cache": 0,
       "errores": 0,
       "warnings": [],
-      "duracion_s": 261.8,
+      "duracion_s": 265.0,
       "estado": "ok"
     },
     {
@@ -355,15 +351,15 @@
       "tipo": "dentalab",
       "metodo": "html_categorias_custom",
       "metodo_estimacion": "items_x_cats_estimado",
-      "productos": 904,
+      "productos": 906,
       "estimados": 4088,
-      "cobertura_pct": 22.1,
+      "cobertura_pct": 22.2,
       "reutilizados_cache": 0,
       "errores": 0,
       "warnings": [
-        "⚠ COBERTURA_BAJA: 904 scrapeados / ~4088 estimados (22.1%)"
+        "⚠ COBERTURA_BAJA: 906 scrapeados / ~4088 estimados (22.2%)"
       ],
-      "duracion_s": 988.0,
+      "duracion_s": 1135.2,
       "estado": "cobertura_baja"
     },
     {
@@ -371,16 +367,16 @@
       "nombre": "Odontostore",
       "tipo": "odontostore",
       "metodo": "html_categorias_custom",
-      "metodo_estimacion": "cats_count_estimado",
+      "metodo_estimacion": "sin_estimacion",
       "productos": 0,
-      "estimados": 460,
+      "estimados": 0,
       "cobertura_pct": 0.0,
       "reutilizados_cache": 0,
       "errores": 0,
       "warnings": [
         "⚠ 0 productos — verificar manualmente"
       ],
-      "duracion_s": 385.9,
+      "duracion_s": 396.3,
       "estado": "sin_productos"
     },
     {
@@ -389,21 +385,21 @@
       "tipo": "cedent",
       "metodo": "html_categorias_odoo",
       "metodo_estimacion": "items_x_cats_estimado",
-      "productos": 864,
-      "estimados": 8950,
-      "cobertura_pct": 9.7,
+      "productos": 927,
+      "estimados": 8900,
+      "cobertura_pct": 10.4,
       "reutilizados_cache": 0,
       "errores": 0,
       "warnings": [
-        "⚠ COBERTURA_BAJA: 864 scrapeados / ~8950 estimados (9.7%)"
+        "⚠ COBERTURA_BAJA: 927 scrapeados / ~8900 estimados (10.4%)"
       ],
-      "duracion_s": 824.8,
+      "duracion_s": 858.6,
       "estado": "cobertura_baja"
     }
   ],
-  "total_productos": 18067,
-  "total_errores": 6,
-  "duracion_total_s": 7116.8,
+  "total_productos": 18763,
+  "total_errores": 4,
+  "duracion_total_s": 7030.9,
   "tiendas_cobertura_baja": [
     "Olympic Dental",
     "Dento",
